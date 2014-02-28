@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>L.A. ODs</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="css/leaflet.css" />
+  
+  <script src="/pico/client.js"></script>
+  <script>pico.load("routing");</script>
+  
+  <!-- Leaflet imports -->
+  <script src="d3.v3.min.js"></script>
+  <script src="leaflet.js"></script>
+  <script src="leaflet-providers.js"></script>
+  
+  <!-- Shapefile imports -->
+  <script src="shp.js"></script>
+  <script src="catiline.js"></script>
+  <script src="leaflet.shpfile.js"></script>
+  
+  <style>
+    html { height: 100% }
+    body { height: 100%; margin: 0; padding: 0;}
+    #map{ height: 100% }
+    #loading {
+      width: 100%;
+      height: 9%;
+      top: 50%;
+      left: 0px;
+      position: fixed;
+      display: block;
+      opacity: 0.8;
+      background-color: #fff;
+      z-index: 99;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <h1>Loading...</h1>
+  </div>
+  <div id="map"></div>
+  <script>
+    function objToString (obj) {
+        var str = '';
+        for (var p in obj) {
+            if (obj.hasOwnProperty(p)) {
+                str += (p + ':' + obj[p] + '<br>');
+            }
+        }
+        return str;
+    }
+  
+    var colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
+    
+    start = undefined;
+    end = undefined;
+    var count = 0;
+    var map = L.map('map', {attributionControl: false}).setView([34.096, -117.948], 12);
+    
+    var routes = L.featureGroup();
+    routes.addTo(map);
+    
+    var sensors = L.featureGroup();
+    sensors.addTo(map);
+    
+    var intersects = L.featureGroup();
+    intersects.addTo(map);
+    
+    var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer) {
+      if (feature.properties) {
+        layer.id = count;
+        layer.setStyle({weight: 3, opacity: 0.4});
+      }
+      
+      layer.on("click", function(l){
+        routes.clearLayers();
+        if(start == undefined){
+          start = layer;
+          layer.setStyle({color: '#00ff00'});
+        }
+        
+        else if (start == layer){
+          start.setStyle({color: '#0000ff'});
+          start = undefined;
+        }
+        
+        else if (end == undefined){
+          end = layer;
+          layer.setStyle({color: '#ff0000'});
+        }
+        
+        else if (end == layer){
+          end.setStyle({color: '#0000ff'});
+          end = undefined;
+        }
+        
+        if (start != undefined && end != undefined){
+          var origin = start.getBounds().getCenter();
+          var destination = end.getBounds().getCenter();
+          console.log(origin.lat + ',' + origin.lng + ',' + destination.lat + ',' + destination.lng);
+          routing.plan(origin.lat, origin.lng, destination.lat, destination.lng, function(data){
+              intersects.clearLayers();
+              TMP = data;
+              data[0].routes.forEach(function(d, i){
+                polyline = new L.Polyline(decode(d.overview_polyline.points), {color: colors[i+1], opacity: 1.0});
+                
+                var distance = 0.0;
+                var duration = 0.0;
+                d.legs.forEach(function(leg){
+                  distance += leg.distance.value;
+                  duration += leg.duration.value;
+                })
+                polyline.bindPopup("alternative: " + i + "<br>distance: " + (Math.round((distance / 5280.0) * 100) / 100.0) + " miles<br>duration: " + (Math.round((duration / 60.0) * 100) / 100.0)  + " mins");
+                routes.addLayer(polyline);
+              });
+              
+               data[2].forEach(function(line_seg, i){
+                   console.log(line_seg);
+                 polyline = new L.Polyline(line_seg.coordinates, {color: "#ffffff", opacity: 0.8});
+                 polyline.bindPopup("alternative hamming dist: "); // + i + "<br>distance: " + (Math.round((distance / 5280.0) * 100) / 100.0) + " miles<br>duration: " + (Math.round((duration / 60.0) * 100) / 100.0)  + " mins");
+                 routes.addLayer(polyline);
+               });
+
+              data[1].forEach(function(d){
+                var sensor = L.circle([d[1], d[0]], 10, {
+                  color: 'yellow',
+                  fillColor: 'yellow',
+                  fillOpacity: 1.0
+                });
+                sensor.bindPopup(d.join());
+                intersects.addLayer(sensor);
+              });
+          });
+        }
+      });
+      
+      count += 1;
+      if(count == 321){
+        d3.select('#loading').transition()
+          .duration(1000)
+          .style("opacity", 0.0).remove();
+        
+        d3.csv("data/sensors.csv", function(data) {
+          data.forEach(function(d){
+            var sensor = L.circle([d.Latitude, d.Longitude], 10, {
+              color: 'red',
+              fillColor: '#f03',
+              fillOpacity: 0.5
+            });
+            sensor.bindPopup(objToString(d));
+            sensors.addLayer(sensor);
+          });
+        });
+      }
+    }});
+    ods.addTo(map);
+    
+    var defaultLayer = L.tileLayer.provider('OpenStreetMap.Mapnik').addTo(map);
+    
+    var baseLayers = {
+      'OpenStreetMap.Mapnik': defaultLayer,
+      'Stamen.Toner': L.tileLayer.provider('Stamen.Toner'),
+      'Stamen Watercolor': L.tileLayer.provider('Stamen.Watercolor'),
+      "OpenStreetMap (Black & White)": L.tileLayer.provider('OpenStreetMap.BlackAndWhite'),
+      "MapBox Example": L.tileLayer.provider('MapBox.examples.map-zr0njcqy'),
+      "Thunderforest Transport": L.tileLayer.provider('Thunderforest.Transport'),
+      "MapQuest Aerial": L.tileLayer.provider('MapQuestOpen.Aerial'),
+      "Stamen Toner": L.tileLayer.provider('Stamen.Toner'),
+      "Stamen Watercolor": L.tileLayer.provider('Stamen.Watercolor'),
+      "Esri DeLorme": L.tileLayer.provider('Esri.DeLorme'),
+      "Esri NatGeoWorldMap": L.tileLayer.provider('Esri.NatGeoWorldMap'),
+      "Esri WorldGrayCanvas": L.tileLayer.provider('Esri.WorldGrayCanvas')
+    };
+    
+    var overlayMaps = {
+      'Routes': routes,
+      'ODs': ods,
+      'Sensors': sensors,
+      'Yellows': intersects,
+    };
+    
+    var controls = L.control.layers(baseLayers, overlayMaps, {collapsed: false});
+    controls.addTo(map);
+    
+    function decode(encoded){
+
+    // array that holds the points
+
+    var points=[ ]
+    var index = 0, len = encoded.length;
+    var lat = 0, lng = 0;
+    while (index < len) {
+        var b, shift = 0, result = 0;
+        do {
+
+    b = encoded.charAt(index++).charCodeAt(0) - 63;//finds ascii                                                                                    //and substract it by 63
+              result |= (b & 0x1f) << shift;
+              shift += 5;
+             } while (b >= 0x20);
+
+
+       var dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+       lat += dlat;
+      shift = 0;
+      result = 0;
+     do {
+        b = encoded.charAt(index++).charCodeAt(0) - 63;
+        result |= (b & 0x1f) << shift;
+       shift += 5;
+         } while (b >= 0x20);
+     var dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+     lng += dlng;
+ 
+
+   points.push(new L.LatLng(lat / 1E5, lng / 1E5));
+  }
+  return points
+    }
+    
+    function decode2(encoded){
+
+    // array that holds the points
+
+    var points="[";
+    var index = 0, len = encoded.length;
+    var lat = 0, lng = 0;
+    while (index < len) {
+        var b, shift = 0, result = 0;
+        do {
+
+    b = encoded.charAt(index++).charCodeAt(0) - 63;//finds ascii                                                                                    //and substract it by 63
+              result |= (b & 0x1f) << shift;
+              shift += 5;
+             } while (b >= 0x20);
+
+
+       var dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+       lat += dlat;
+      shift = 0;
+      result = 0;
+     do {
+        b = encoded.charAt(index++).charCodeAt(0) - 63;
+        result |= (b & 0x1f) << shift;
+       shift += 5;
+         } while (b >= 0x20);
+     var dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+     lng += dlng;
+ 
+
+   points += "[" + (lat / 1E5) + ","  + (lng / 1E5) + "]";
+  }
+  return points + "]"
+    }
+  </script>
+</body>
+</html>
+

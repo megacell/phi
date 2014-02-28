@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ireland Voronoi</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="css/leaflet.css" />
+  
+  <!-- Leaflet imports -->
+  <script src="d3.v3.min.js"></script>
+  <script src="leaflet.js"></script>
+  <script src="leaflet-providers.js"></script>
+  
+  <!-- Shapefile imports -->
+  <script src="shp.js"></script>
+  <script src="catiline.js"></script>
+  <script src="leaflet.shpfile.js"></script>
+  
+  <style>
+    html { height: 100% }
+    body { height: 100%; margin: 0; padding: 0;}
+    #map{ height: 100% }
+    #loading {
+      width: 100%;
+      height: 9%;
+      top: 50%;
+      left: 0px;
+      position: fixed;
+      display: block;
+      opacity: 0.8;
+      background-color: #fff;
+      z-index: 99;
+      text-align: center;
+    }
+  </style>
+  
+  <script>
+    d3.json("data/gsm2.json", function(data) {
+      site_names = data;
+    });
+  </script>
+</head>
+<body>
+  <div id="loading">
+    <h1>Loading...</h1>
+  </div>
+  <div id="map"></div>
+  <script>
+    var count = 0;
+    var map = L.map('map', {attributionControl: false}).setView([53.38, -7.59], 7);
+    var voronoi = new L.Shapefile('data/ireland_voronoi2.zip',{onEachFeature:function(feature, layer) {
+      F = feature;
+      L = layer;
+      if (feature.properties) {
+          site_name = feature.properties.site_name;
+          area = feature.properties.AREA;
+          calls = site_names[site_name]['#calls'];
+          html = "site_name: " + site_name + "<br>area: " + area + "KM<br>#calls: " + calls + "<br>";
+          site_names[site_name]['cells'].forEach(function(d){
+              html += "<br>cell: " + d.Cell + " azimuth: " + d.Azimuth;
+          });
+          layer.bindPopup(html);
+      }
+      
+      count += 1;
+      if(count == 1092){
+        d3.csv("data/GsmSite.csv", function(data) {
+          data.forEach(function(d){
+            towers.addLayer(L.circle([parseFloat(d.y), parseFloat(d.x)], 10, {
+              color: 'red',
+              fillColor: 'red',
+              fillOpacity: 1.0
+            }));
+          });
+          towers.addTo(map);
+          d3.select('#loading').transition()
+            .duration(1000)
+            .style("opacity", 0.0).remove();
+        });
+      }
+    }});
+    voronoi.addTo(map);
+    
+    var towers = L.featureGroup();
+    towers.addTo(map);
+    
+    var defaultLayer = L.tileLayer.provider('OpenStreetMap.Mapnik').addTo(map);
+    
+    var baseLayers = {
+      'OpenStreetMap.Mapnik': defaultLayer,
+      'Stamen.Toner': L.tileLayer.provider('Stamen.Toner'),
+      'Stamen Watercolor': L.tileLayer.provider('Stamen.Watercolor'),
+    };
+    
+    var overlayMaps = {
+      'Voronoi': voronoi,
+      'Towers': towers,
+    };
+    
+    var controls = L.control.layers(baseLayers, overlayMaps, {collapsed: false});
+    controls.addTo(map);
+  </script>
+</body>
+</html>
+

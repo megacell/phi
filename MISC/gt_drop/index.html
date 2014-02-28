@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>L.A. ODs</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="css/leaflet.css" />
+  
+  <script src="/pico/client.js"></script>
+  <script>pico.load("pg_routing");</script>
+  
+  <!-- Leaflet imports -->
+  <script src="d3.v3.min.js"></script>
+  <script src="leaflet.js"></script>
+  <script src="leaflet-providers.js"></script>
+  
+  <!-- Shapefile imports -->
+  <script src="shp.js"></script>
+  <script src="catiline.js"></script>
+  <script src="leaflet.shpfile.js"></script>
+  
+  <style>
+    html { height: 100% }
+    body { height: 100%; margin: 0; padding: 0;}
+    #map{ height: 100% }
+    #loading {
+      width: 100%;
+      height: 9%;
+      top: 50%;
+      left: 0px;
+      position: fixed;
+      display: block;
+      opacity: 0.8;
+      background-color: #fff;
+      z-index: 99;
+      text-align: center;
+    }
+    #dropzone { border: 4px dashed #ccc; width: 200px; height: 50px; margin: 10px auto; text-align: center}
+    #dropzone.hover { border: 4px dashed #000; }
+  </style>
+</head>
+<body>
+  <table>
+    <tr>
+      <td>
+        <div id="dropzone">
+          <p style='font-size: 14pt'>Drop .json file here</p>
+        </div>
+      </td>
+      <td>
+        <table style="margin-left: 10px">
+          <tr><td>Filename:</td><td id='filename'>Unknown</td></tr>
+          <tr><td>Size:</td><td id='filesize'>Unknown</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+  <div id="map"></div>
+  <script>
+    scount = 0;
+    var holder = document.getElementById('dropzone');
+    holder.ondragover = function () { this.className = 'hover'; return false; };
+    holder.ondragend = function () { this.className = ''; return false; };
+    holder.ondrop = function (e) {
+      this.className = '';
+      e.preventDefault();
+      file = e.dataTransfer.files[0];
+      var reader = new FileReader();
+      reader.onload = function (event) {
+        data = JSON.parse(event.target.result);
+        routes.clearLayers();
+        steps.clearLayers();
+        data.routes.forEach(function(d, i){
+          console.log('route_' + i);
+          POINTS = decode2(d.overview_polyline.points);
+          polyline = new L.Polyline(decode(d.overview_polyline.points), {color: colors[i+1], opacity: 1.0});
+          var distance = 0.0;
+          var duration = 0.0;
+          d.legs.forEach(function(leg, j){
+            distance += leg.distance.value;
+            duration += leg.duration.value;
+          })
+          
+          polyline.bindPopup("alternative: " + i + "<br>distance: " + (Math.round((distance / 5280.0) * 100) / 100.0) + " miles<br>duration: " + (Math.round((duration / 60.0) * 100) / 100.0)  + " mins");
+          polyline.on('mouseover', function(evt) {
+            var layers = routes.getLayers();
+            layers.forEach(function(l){
+              l.setStyle({'opacity': 0})
+            });
+            evt.target.setStyle({'opacity': 1});
+          });
+          polyline.on('mouseout', function(evt) {
+            var layers = routes.getLayers();
+            layers.forEach(function(l){
+              l.setStyle({'opacity': 1})
+            });
+          });
+          routes.addLayer(polyline);
+        });
+      };
+      d3.select('#filename').text(file.name);
+      d3.select('#filesize').text((Math.round((file.size / 1024.0) * 100) / 100) + ' kB');
+      reader.readAsText(file);
+      return false;
+    };
+    
+    var colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
+    
+    var routes = L.featureGroup();
+    var steps = L.featureGroup();
+    var sensors = L.featureGroup();
+    
+    start = undefined;
+    end = undefined;
+    var count = 0;
+    var map = L.map('map', {attributionControl: false}).setView([34.096, -117.948], 12);
+    //L.rectangle([[34.50655662164561, -116.43859863281249], [33.55627344791359, -119.05471801757811]], {color: "#ff7800", weight: 1}).addTo(map);
+    routes.addTo(map);
+    steps.addTo(map);
+    var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer) {
+      if (feature.properties) {
+        layer.id = count;
+        layer.setStyle({weight: 3, opacity: 0.4});
+      }
+      
+      count += 1;
+      if(count == 321){
+        d3.select('#loading').transition()
+          .duration(1000)
+          .style("opacity", 0.0).remove();
+      }
+    }});
+    ods.addTo(map);
+    sensors.addTo(map);
+    
+    var defaultLayer = L.tileLayer.provider('OpenStreetMap.Mapnik').addTo(map);
+    
+    var baseLayers = {
+      'OpenStreetMap.Mapnik': defaultLayer,
+      'Stamen.Toner': L.tileLayer.provider('Stamen.Toner'),
+      'Stamen Watercolor': L.tileLayer.provider('Stamen.Watercolor'),
+    };
+    
+    var overlayMaps = {
+      'ODs': ods,
+      'Routes': routes,
+      'Sensors': sensors
+    };
+    
+    var controls = L.control.layers(baseLayers, overlayMaps, {collapsed: false});
+    controls.addTo(map);
+    
+    function objToString (obj) {
+        var str = '';
+        for (var p in obj) {
+            if (obj.hasOwnProperty(p)) {
+                str += (p + ':' + obj[p] + '<br>');
+            }
+        }
+        return str;
+    }
+    
+    d3.csv("data/sensors.csv", function(data) {
+      data.forEach(function(d){
+        var sensor = L.circle([d.Latitude, d.Longitude], 10, {
+          color: 'red',
+          fillColor: '#f03',
+          fillOpacity: 0.5
+        });
+        sensor.bindPopup(objToString(d));
+        sensors.addLayer(sensor);
+      })
+    });
+    
+    function decode(encoded){
+      points=[ ]
+      var index = 0, len = encoded.length;
+      var lat = 0, lng = 0;
+      while (index < len) {
+        var b, shift = 0, result = 0;
+        do {
+          b = encoded.charAt(index++).charCodeAt(0) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
+        var dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+        shift = 0;
+        result = 0;
+        do {
+          b = encoded.charAt(index++).charCodeAt(0) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
+        var dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+        points.push(new L.LatLng(lat / 1E5, lng / 1E5));
+      }
+      return points
+    }
+    
+    function decode2(encoded){
+      var points= "LINESTRING(";
+      var index = 0, len = encoded.length;
+      var lat = 0, lng = 0;
+      while (index < len) {
+        var b, shift = 0, result = 0;
+        do {
+          b = encoded.charAt(index++).charCodeAt(0) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
+        var dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+        shift = 0;
+        result = 0;
+        do {
+          b = encoded.charAt(index++).charCodeAt(0) - 63;
+          result |= (b & 0x1f) << shift;
+          shift += 5;
+        } while (b >= 0x20);
+        var dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+        points += lng / 1E5 + ' ' + lat / 1E5 + ','
+      }
+      return points.substring(0, points.length - 1) + ')'
+    }
+  </script>
+</body>
+</html>
+
