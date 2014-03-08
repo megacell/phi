@@ -75,7 +75,7 @@ def condense_to_same_route(R, S):
     R_trans.set_srid(4326)
     R_trans.transform(900913)
     # Add R points to S
-    R_in_S = {}
+    R_in_S = []
     for pair in R:
         pt = Point(pair, srid=4326)
         pt.transform(900913)
@@ -91,7 +91,7 @@ def condense_to_same_route(R, S):
             s_line_dist = pt.distance(s_line)
 # TODO: should this be fuzzy equal?
             if s_line_dist == dist:
-                BROKEN
+                R_in_S.append({'add_after':index,'value':pair})
 
 def find_shared_segments(R, S):
   """Return a list of LineStrings where two routes overlap
