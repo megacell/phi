@@ -1,101 +1,205 @@
 """
 Solve network tomography problem with radiation model as a baseline
 """
-
 import sys
+import getopt
+import argparse
+import logging
 import csv
 import pickle
 import numpy as np
-
 import time
-
 import shapefile
-
+import math
 from scipy.sparse import csr_matrix, lil_matrix
 from scipy.sparse.linalg import lsqr, lsmr, svds
-
 from scipy.sparse import hstack
-
 from matplotlib import pyplot as plt
-
+import ipdb
 import scipy.io as sio
+from lib.console_progress import ConsoleProgress
 
-def add_data_path(original_function):
-    # make a new function that prints a message when original_function starts and finishes
-    def new_function(*args, **kwargs):
-        args = list(args)
-        args[0] = "data/" + args[0]
-        args = tuple(args)
-        return original_function(*args, **kwargs)
- 
-    return new_function
+args = []
+args_set = None
+data_prefix = None
+ACCEPTED_LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'WARN']
 
-open = add_data_path(open)
+#############
+# Constants #
+#############
+# Size of problem
+N_TAZ = 321
+N_ROUTES = 280691
+N_SENSORS = 1033
+FIRST_ROUTE = 0
 
-t0 = time.time()
+# Test choice for data verification
+TEST_ORIGIN = 123
+TEST_DESTINATION = 10
+TEST_ROUTE = 0
 
-Ntaz = 321
-Nroutes = 280691
-Nsens = 1033
+def generate_od_travel_time_pairs():
+    gen_tt = ConsoleProgress(N_TAZ, args.verbose, message="Loading travel times")
+    od_pair_matrix = [[{} for x in range(N_TAZ)] for y in range(N_TAZ)]
+    with open(data_prefix+'/travel_times.csv') as fopen:
+        reader = csv.reader(fopen,delimiter=',')
+        firstline = fopen.readline()   # skip the first line
+        for row in reader:
+            od_pair_matrix[int(row[0])][int(row[1])][int(row[2])] = float(int(row[3]))
+            gen_tt.update_progress(int(row[0]))
+    gen_tt.finish()
+    return od_pair_matrix
 
-# Load the data.
-data = pickle.load(open('phi.pickle'))
+def sigmoid(x):
+    return 1.0 / (1.0 + math.exp(-float(x)))
 
-# Choose origin.
-origin = 123
-destination = 10
+def generate_routing_matrix(data, use_travel_times):
+    """
+    Given the route index associated with each OD pair, generate a routing matrix.
+    """
+    X = lil_matrix((N_SENSORS, N_TAZ*N_TAZ))
+    x = np.zeros(N_ROUTES)
+    x_ind = 0
+    if use_travel_times:
+        od_pair_travel_times = generate_od_travel_time_pairs()
+    x_gen_progress = ConsoleProgress(N_ROUTES, args.verbose, message="Generating X and U matrices")
+    U = lil_matrix((N_TAZ*(N_TAZ-1), N_ROUTES))
+    # For efficiency, the if statement is surrounding these loops so it doesn't check every iteration
+    if use_travel_times:
+        for i in np.arange(N_TAZ):
+            for j in np.arange(N_TAZ):
+                if data[i].get(j):
+                    if data[i][j]:
+                        travel_times = od_pair_travel_times[i][j]
+                        mean_tt = np.mean(travel_times.values())
+                        std_tt = np.std(travel_times.values())
+                        if std_tt == 0:
+                            std_tt = 1
+                        travel_times = {rt : (float(tt-mean_tt) / std_tt) for rt, tt in travel_times.items()}
+                        travel_times = {rt : sigmoid(tt) for rt, tt in travel_times.items()}
+                        normalizer = float(sum(travel_times.values()))
+                        travel_times = {rt : float(tt)/normalizer for rt, tt in travel_times.items()}
+                        for route, sensors in enumerate(data[i][j]):
+                            tt = travel_times[route]
+                            for s in sensors:
+                                X[s,i*N_TAZ+j] += tt
+                            x[x_ind] = tt
+                            row_index = i*(N_TAZ-1)+j
+                            if j > i:
+                                row_index -= 1
+                            U[row_index, x_ind] = 1
+                            x_ind = x_ind + 1
+                            x_gen_progress.update_progress(x_ind)
+    else:
+        for i in np.arange(N_TAZ):
+            for j in np.arange(N_TAZ):
+                if data[i].get(j):
+                    if data[i][j]:
+                        for route, sensors in enumerate(data[i][j]):
+                            if route == FIRST_ROUTE:
+                                for s in sensors:
+                                    X[s,i*N_TAZ+j] = 1
+                                x[x_ind] = 1
+                            row_index = i*(N_TAZ-1)+j
+                            if j > i:
+                                row_index -= 1
+                            U[row_index, x_ind] = 1
+                            x_ind += 1
+                            x_gen_progress.update_progress(x_ind)
+    x_gen_progress.finish()
+    return [X, U, x]
 
-# Lets have a look at the first route leaving this origin.
-route = 0
+def main():
+    global args_set, data_prefix
+    parser = argparse.ArgumentParser(description='Solve Tomography problem with radiation model.')
+    parser.add_argument('--verbose', dest='verbose',
+                       const=True, default=False, action='store_const',
+                       help='Show verbose output (default: silent)')
+    parser.add_argument('--data-prefix', dest='prefix', nargs='?', const='data',
+                       default='.', help='Set prefix for data files (default: .)')
+    parser.add_argument('--log', dest='log', nargs='?', const='INFO',
+                       default='WARN', help='Set log level (default: WARN)')
+    parser.add_argument('--compute-route-matrix', '-x', dest='compute_x',
+                       const=True, default=False, action='store_const',
+                       help='Compute the routing matrix instead of loading from a file (default: False)')
+    parser.add_argument('--compute-od-matrix', '-A', dest='compute_a',
+                       const=True, default=False, action='store_const',
+                       help='Compute the OD matrix instead of loading from a file (default: False)')
+    parser.add_argument('--travel-times', '-tt', dest='travel_times',
+                       const=True, default=False, action='store_const',
+                       help='Use travel times to compute routing matrix. Only runs if --compute-route-matrix is set. (default: False)')
+    parser.add_argument('--verify-routes', dest='verify_routes',
+                       const=True, default=False, action='store_const',
+                       help='Use real sensors for tomography. (default: False)')
+    parser.add_argument('--real-sensors', '-s', dest='real_sensors',
+                       const=True, default=False, action='store_const',
+                       help='Use real sensors for tomography. (default: False)')
+    args_set = parser.parse_args()
+    if args_set.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    if args_set.log in ACCEPTED_LOG_LEVELS:
+        logging.basicConfig(level=eval('logging.'+args_set.log))
+    if args_set.travel_times:
+        logging.info('Using travel times.')
+    if args_set.travel_times and not args_set.compute_x:
+        logging.warn('Computing the routing matrix using travel times does not happen if the matrix is loaded from a file')
+    if args_set.real_sensors:
+        logging.info('Using real sensors for tomography solution.')
+    if args_set.prefix[-1] == '/':
+        data_prefix = args_set.prefix[:-1]
+    else:
+        data_prefix = args_set.prefix
+    args = args_set
+
+if __name__ == "__main__":
+    main()
+    args = args_set
 
 # It intersects the following sensors.
-# sensors = data[origin][destination][route]
-# print "%s: Data loaded, sample path: %s" % (str(time.time()-t0), str(sensors))
 
-# Routing matrix for tomogravity model
-X = lil_matrix((Nsens, Ntaz*Ntaz))
-x = np.zeros(Nroutes)
-x_ind = 0
-print
-for i in np.arange(Ntaz):
-    for j in np.arange(Ntaz):
-        if data[i].get(j): 
-            if data[i][j]:              
-                for ind, routes in enumerate(data[i][j]):
-                    if ind == 0:
-                        for r in routes:
-                            X[r,i*Ntaz+j] = 1
-                    x_ind = x_ind + 1
-                    sys.stdout.write("\r{0:.2f}%%".format(100*float(x_ind)/Nroutes))
-                    sys.stdout.flush()
-#sio.savemat("x.mat", {'x':x})
+X = None
+if args.compute_x:
+    # Load the data.
+    data_progress = ConsoleProgress(1, args.verbose, message="Loading phi")
+    data = pickle.load(open(data_prefix+'/phi.pickle'))
+    route_phi = data
+    data_progress.finish()
+    X, U, x = generate_routing_matrix(data, args.travel_times)
+    sio.savemat(data_prefix+'/X_matrix.mat', {'X':X, 'x':x, 'U':U})
+else:
+    x_load_progress = ConsoleProgress(1, args.verbose, message="Loading X matrix from file")
+    loaded_data = sio.loadmat(data_prefix+'/X_matrix.mat')
+    X = loaded_data['X']
+    U = loaded_data['U']
+    x = loaded_data['x']
+    x_load_progress.finish()
+    if args.verify_routes:
+        route_phi = pickle.load(open(data_prefix+'/phi.pickle'))
 
-sio.savemat('X_matrix.mat', {'X':X})
-# X = pickle.load(open('X_matrix.pickle'))
-print "%s: Routing matrix X completed" % str(time.time()-t0)  
+if args.verify_routes:
+    sensors = route_phi[TEST_ORIGIN][TEST_DESTINATION][TEST_ROUTE]
+    print "Data loaded, sample path: %s" % str(sensors)
     
 # Read pre-computed trip counts for all OD pairs (simulated with radiation model)
 rad, TAZ = np.zeros((321,321)), np.zeros(321)
-with open('trips.csv') as file:
+load_radiation_progress = ConsoleProgress(321*321, args.verbose, message="Loading radiation model heuristic")
+with open(data_prefix+'/trips.csv') as file:
   reader = csv.reader(file,delimiter=',')
   firstline = file.readline()   # skip the first line
-  for row in reader:
+  for prog, row in enumerate(reader):
     rad[int(row[2]),int(row[3])] = int(float(row[6]))        
+    load_radiation_progress.update_progress(prog)
+load_radiation_progress.finish()
 
-print "%s: Heuristic OD loaded" % str(time.time()-t0)
+radflow = rad.reshape((N_TAZ*N_TAZ,1))
 
-
-radflow = rad.reshape((Ntaz*Ntaz,1))
-
-
-Use_Real_Sensors = False
+Use_Real_Sensors = args.real_sensors
 
 if Use_Real_Sensors:
-
   # Real count data from PEMS
   day_num = 3
   sensors, nocounts, yescounts = np.zeros((1033,1)), [], []
-  with open('sensor_counts2.csv') as file:
+  with open(data_prefix+'/sensor_counts2.csv') as file:
     reader = csv.reader(file,delimiter=',')
     firstline = file.readline()   # skip the first line
     for row in reader:
@@ -111,21 +215,22 @@ if Use_Real_Sensors:
                
 if not Use_Real_Sensors:    
   # right side for the tomogravity model + noise 
-  sensors = X*(radflow + 100*np.random.rand((Ntaz*Ntaz),1))    
-  yescounts = np.arange(Nsens)
+  sensors = X*(radflow + 100*np.random.rand((N_TAZ*N_TAZ),1))    
+  yescounts = np.arange(N_SENSORS)
   
 
 ##    
 # wlse_tomogravity solved with sparse least squares   
 #
+lsqr_progress = ConsoleProgress(5, args.verbose, message='Solving LSQR')
 bw = sensors - X*radflow
 Xcsr = csr_matrix(X)
+lsqr_progress.update_progress(1)
 tw = lsqr(Xcsr[yescounts,:], bw[yescounts], damp = 100)[0]
 
 # transform tw back to t
 t = radflow[:,0] + tw
- 
-print "%s: LSQR solved" % str(time.time()-t0)    
+lsqr_progress.finish()
 
 ### 
 ##  Pseudo-inv via SVD
@@ -147,44 +252,54 @@ c_rad = X*radflow[:,0]
 
 # plot LSQR solution vs sensors
 plt.plot(c_lsqr,sensors,'ro')
+plt.show()
 #plt.plot(c_svd,sensors,'bo')
 
-flow_model = np.array(t.reshape((Ntaz,Ntaz)))
+flow_model = np.array(t.reshape((N_TAZ,N_TAZ)))
 
-lookup = pickle.load(open('lookup.pickle'))
+lookup = pickle.load(open(data_prefix+'/lookup.pickle'))
 rlookup = {}
 for index in lookup:
   rlookup[lookup[index]] = index
 
 data = []
-with open('radiation_results.csv') as fopen:
+with open(data_prefix+'/radiation_results.csv') as fopen:
   for row in fopen:
     data.append(map(float, row.strip().split(',')[:-1]))
 
 pop = {}
-sf = shapefile.Reader("data/ods.shp")
+sf = shapefile.Reader(data_prefix+'/ods.shp')
 records = sf.records()
 for i in range(len(records)):
   pop[records[i][3]] = float(records[i][4])
   
-A = lil_matrix((Nsens, Nroutes))
-U = lil_matrix((Ntaz*Ntaz, Nroutes))
+A = lil_matrix((N_SENSORS, N_ROUTES))
 
-route_phi = pickle.load(open('phi.pickle'))
-col_index = 0
-with open('trips_model.csv', 'w') as fout:
-  fout.write('origin,destination,origin_index,destination_index,prob,pop20,trips\n')
-  for i in range(len(data)-1):
-    for j in range(len(data)-1):
-      if i > 0 and j > 0 and i != j:
-        fout.write('%s,%s,%s,%s,%s,%s,%s\n' % (data[0][i], data[j][0], rlookup[data[0][i]], rlookup[data[j][0]], data[i][j], pop[data[0][i]], max(0, flow_model[rlookup[data[0][i]], rlookup[data[j][0]]])))
-        origin, destination = rlookup[data[0][i]], rlookup[data[j][0]]
-        routes = route_phi[origin][destination]
-        for route_index, row_indices in enumerate(routes):
-            row_index = (origin*Ntaz + destination)
-            U[row_index, col_index] = 1
-            for row_index in row_indices:
-                A[row_index, col_index] = max(0, flow_model[rlookup[data[0][i]], rlookup[data[j][0]]])
-            col_index = col_index + 1
+if not ('route_phi' in locals() or 'route_phi' in globals()):
+    load_phi_progress = ConsoleProgress(1, args.verbose, message="Loading phi")
+    route_phi = pickle.load(open(data_prefix+'/phi.pickle'))
+    load_phi_progress.finish()
 
-sio.savemat("rhs_matrices.mat", {'A':A, 'U':U, 'x':x})
+if args.compute_a:
+    a_gen_progress = ConsoleProgress(N_ROUTES, args.verbose, message="Generating A matrix")
+    col_index = 0
+    with open(data_prefix+'/trips_model.csv', 'w') as fout:
+      fout.write('origin,destination,origin_index,destination_index,prob,pop20,trips\n')
+      for i in range(len(data)-1):
+        for j in range(len(data)-1):
+          if i > 0 and j > 0 and i != j:
+            fout.write('%s,%s,%s,%s,%s,%s,%s\n' % (data[0][i], data[j][0], rlookup[data[0][i]], rlookup[data[j][0]], data[i][j], pop[data[0][i]], max(0, flow_model[rlookup[data[0][i]], rlookup[data[j][0]]])))
+            origin, destination = rlookup[data[0][i]], rlookup[data[j][0]]
+            routes = route_phi[origin][destination]
+            for route_index, row_indices in enumerate(routes):
+                for row_index in row_indices:
+                    A[row_index, col_index] = max(0, flow_model[rlookup[data[0][i]], rlookup[data[j][0]]])
+                col_index = col_index + 1
+                a_gen_progress.update_progress(col_index)
+    a_gen_progress.finish()
+else:
+    loaded_data = sio.loadmat(args.prefix+'/route_assignment_matrices.mat')
+    A = loaded_data['A']
+    sensors = loaded_data['b']
+
+sio.savemat(data_prefix+'/route_assignment_matrices.mat', {'A':A, 'U':U, 'x':x, 'b':sensors})

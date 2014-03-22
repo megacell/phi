@@ -67,7 +67,6 @@ def condense_to_same_route(R, S):
     route_b -- LineString route
     This method should be commutative.
     """
-
     S_trans = S.clone()
     S_trans.set_srid(4326)
     S_trans.transform(900913)
@@ -84,7 +83,7 @@ def condense_to_same_route(R, S):
             continue
         S_len = len(S_trans)
         for index, S_start in enumerate(S_trans):
-            if index = S_len - 1:
+            if index == S_len - 1:
                 break
             S_end = S_trans[index + 1]
             s_line = LineString([S_start, S_end])
@@ -238,6 +237,7 @@ def decode_line(encoded):
         dlng = ~(result >> 1) if result & 1 else result >> 1
         lng += dlng
         array.append(Point(lng * 1e-5, lat * 1e-5))
+    raise Exception("THERE ARE %d POINTS" % len(array))
     return LineString(array)
 
 def encode_line(line_string):
