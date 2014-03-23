@@ -1,17 +1,20 @@
 import os
 from lib import google_lines
 import pickle
+import random
 from django.contrib.gis.geos import Point, LineString
 import json
 from lib.console_progress import ConsoleProgress
 
 data_prefix = 'data'
 N_TAZ = 321
+N_TAZ_TARGET = 150
+FUZZY_DIST = 10
 
 def route_sensors(route):
   intersects = []
   for i, s in enumerate(sensors):
-    if s.distance(route) < 10:
+    if s.distance(route) < FUZZY_DIST:
       intersects.append(i)
   return intersects
 
@@ -36,27 +39,31 @@ for i, p in enumerate(points):
 lookup = pickle.load(open(data_prefix+'/lookup.pickle'))
 files = os.listdir(data_prefix+'/data')
 
+selected_origins = random.sample(xrange(N_TAZ), N_TAZ_TARGET)
+
 origins = {}
 for file in files:
   file = file.replace('.json', '')
   o, d = map(int, file.split('_'))
+  if o not in selected_origins or d not in selected_origins:
+      continue
   if not o in origins:
     origins[o] = {}
   if not d in origins[o]:
     origins[o][d] = []
   
-gen_tt = ConsoleProgress(N_TAZ, message="Computing Phi")
-out = open(data_prefix+'/routes.csv', 'w')
-out.write('id#origin#destination#route#origin_taz#destination_taz#route#sensors\n')
+gen_tt = ConsoleProgress(N_TAZ_TARGET, message="Computing Phi")
+out = open(data_prefix+'/routes_condensed.csv', 'w')
+out.write('id#corigin#cdestination#origin#destination#route#origin_taz#destination_taz#route#sensors\n')
 count = 0
 for index_o, o in enumerate(origins):
   for index_d, d in enumerate(origins[o]):
     for i, route in enumerate(getRoutes(o, d)):
       rs = route_sensors(route)
-      out.write('%s#%s#%s#%s#%s#%s#%s#%s\n' % (count, o, d, i, lookup[o], lookup[d], route, str(rs)))
+      out.write('%s#%s#%s#%s#%s#%s#%s#%s#%s#%s\n' % (count, index_o, index_d, o, d, i, lookup[o], lookup[d], route, str(rs)))
       origins[o][d].append(rs)
-    gen_tt.update_progress(index_o*N_TAZ + index_d)
+  gen_tt.update_progress(index_o)
 out.close()
 gen_tt.finish()
 
-pickle.dump(origins, open(data_prefix+'/phi2.pickle', 'w'))
+pickle.dump(origins, open(data_prefix+'/phi_condensed.pickle', 'w'))

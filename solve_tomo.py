@@ -29,7 +29,9 @@ ACCEPTED_LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'WARN']
 #############
 # Size of problem
 N_TAZ = 321
+N_TAZ_CONDENSED = 150
 N_ROUTES = 280691
+N_ROUTES_CONDENSED = 280691
 N_SENSORS = 1033
 FIRST_ROUTE = 0
 
@@ -57,17 +59,17 @@ def generate_routing_matrix(data, use_travel_times):
     """
     Given the route index associated with each OD pair, generate a routing matrix.
     """
-    X = lil_matrix((N_SENSORS, N_TAZ*N_TAZ))
-    x = np.zeros(N_ROUTES)
+    X = lil_matrix((N_SENSORS, N_TAZ_CONDENSED*N_TAZ_CONDENSED))
+    x = np.zeros(N_ROUTES_CONDENSED)
     x_ind = 0
     if use_travel_times:
         od_pair_travel_times = generate_od_travel_time_pairs()
-    x_gen_progress = ConsoleProgress(N_ROUTES, args.verbose, message="Generating X and U matrices")
-    U = lil_matrix((N_TAZ*(N_TAZ-1), N_ROUTES))
+    x_gen_progress = ConsoleProgress(N_ROUTES_CONDENSED, args.verbose, message="Generating X and U matrices")
+    U = lil_matrix((N_TAZ_CONDENSED*(N_TAZ_CONDENSED-1), N_ROUTES_CONDENSED))
     # For efficiency, the if statement is surrounding these loops so it doesn't check every iteration
     if use_travel_times:
-        for i in np.arange(N_TAZ):
-            for j in np.arange(N_TAZ):
+        for i_ind, i in enumerate(np.arange(N_TAZ)):
+            for j_jnd, j jn enumerate(np.arange(N_TAZ)):
                 if data[i].get(j):
                     if data[i][j]:
                         travel_times = od_pair_travel_times[i][j]
@@ -83,16 +85,17 @@ def generate_routing_matrix(data, use_travel_times):
                             tt = travel_times[route]
                             for s in sensors:
                                 X[s,i*N_TAZ+j] += tt
-                            x[x_ind] = tt
-                            row_index = i*(N_TAZ-1)+j
-                            if j > i:
-                                row_index -= 1
-                            U[row_index, x_ind] = 1
-                            x_ind = x_ind + 1
-                            x_gen_progress.update_progress(x_ind)
+                            if i in condensed_map and j in condensed_map:
+                                x[x_ind] = tt
+                                row_index = i_ind*(N_TAZ_CONDENSED-1)+j_ind
+                                if j_ind > i_ind:
+                                    row_index -= 1
+                                U[row_index, x_ind] = 1
+                                x_ind = x_ind + 1
+                                x_gen_progress.update_progress(x_ind)
     else:
-        for i in np.arange(N_TAZ):
-            for j in np.arange(N_TAZ):
+        for i_ind, i in enumerate(np.arange(N_TAZ)):
+            for j_jnd, j jn enumerate(np.arange(N_TAZ)):
                 if data[i].get(j):
                     if data[i][j]:
                         for route, sensors in enumerate(data[i][j]):
@@ -100,13 +103,18 @@ def generate_routing_matrix(data, use_travel_times):
                                 for s in sensors:
                                     X[s,i*N_TAZ+j] = 1
                                 x[x_ind] = 1
-                            row_index = i*(N_TAZ-1)+j
-                            if j > i:
-                                row_index -= 1
-                            U[row_index, x_ind] = 1
-                            x_ind += 1
-                            x_gen_progress.update_progress(x_ind)
+                            if i in condensed_map and j in condensed_map:
+                                row_index = i_ind*(N_TAZ_CONDENSED-1)+j_ind
+                                if j_ind > i_ind:
+                                    row_index -= 1
+                                U[row_index, x_ind] = 1
+                                x_ind += 1
+                                x_gen_progress.update_progress(x_ind)
+    print "N_ROUTES_CONDENSED:", x_ind
+    N_ROUTES_CONDENSED = x_ind
     x_gen_progress.finish()
+    U = U[:, 0:x_ind-1]
+    x = x[0:x_ind-1]
     return [X, U, x]
 
 def main():
@@ -155,6 +163,8 @@ if __name__ == "__main__":
     main()
     args = args_set
 
+condensed_map = pickle.load(open(data_prefix+"/condensed_od_map.pickle"))
+
 # It intersects the following sensors.
 
 X = None
@@ -181,8 +191,8 @@ if args.verify_routes:
     print "Data loaded, sample path: %s" % str(sensors)
     
 # Read pre-computed trip counts for all OD pairs (simulated with radiation model)
-rad, TAZ = np.zeros((321,321)), np.zeros(321)
-load_radiation_progress = ConsoleProgress(321*321, args.verbose, message="Loading radiation model heuristic")
+rad, TAZ = np.zeros((N_TAZ,N_TAZ)), np.zeros(N_TAZ)
+load_radiation_progress = ConsoleProgress(N_TAZ*N_TAZ, args.verbose, message="Loading radiation model heuristic")
 with open(data_prefix+'/trips.csv') as file:
   reader = csv.reader(file,delimiter=',')
   firstline = file.readline()   # skip the first line
@@ -273,7 +283,7 @@ records = sf.records()
 for i in range(len(records)):
   pop[records[i][3]] = float(records[i][4])
   
-A = lil_matrix((N_SENSORS, N_ROUTES))
+A = lil_matrix((N_SENSORS, N_ROUTES_CONDENSED))
 
 if not ('route_phi' in locals() or 'route_phi' in globals()):
     load_phi_progress = ConsoleProgress(1, args.verbose, message="Loading phi")
@@ -290,12 +300,13 @@ if args.compute_a:
           if i > 0 and j > 0 and i != j:
             fout.write('%s,%s,%s,%s,%s,%s,%s\n' % (data[0][i], data[j][0], rlookup[data[0][i]], rlookup[data[j][0]], data[i][j], pop[data[0][i]], max(0, flow_model[rlookup[data[0][i]], rlookup[data[j][0]]])))
             origin, destination = rlookup[data[0][i]], rlookup[data[j][0]]
-            routes = route_phi[origin][destination]
-            for route_index, row_indices in enumerate(routes):
-                for row_index in row_indices:
-                    A[row_index, col_index] = max(0, flow_model[rlookup[data[0][i]], rlookup[data[j][0]]])
-                col_index = col_index + 1
-                a_gen_progress.update_progress(col_index)
+            if origin in condensed_map and destination in condensed_map:
+                routes = route_phi[origin][destination]
+                for route_index, row_indices in enumerate(routes):
+                    for row_index in row_indices:
+                        A[row_index, col_index] = max(0, flow_model[origin, destination])
+                    col_index = col_index + 1
+                    a_gen_progress.update_progress(col_index)
     a_gen_progress.finish()
 else:
     loaded_data = sio.loadmat(args.prefix+'/route_assignment_matrices.mat')
