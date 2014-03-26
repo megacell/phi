@@ -2,9 +2,14 @@ import time, sys
 import logging
 
 class ConsoleProgress:
-    def __init__(self, size, verbose=True, message=""):
-        self.verbose = verbose
-        if not verbose:
+    verbose = True
+
+    def __init__(self, size, verbose_=None, message=""):
+        if verbose_ is not None:
+            self.verbose = verbose_
+        else:
+            self.verbose = self.__class__.verbose
+        if not self.verbose:
             return
         self.message = message
         self.size = size

@@ -10,7 +10,6 @@ import pickle
 import numpy as np
 import time
 import shapefile
-import math
 from scipy.sparse import csr_matrix, lil_matrix
 from scipy.sparse.linalg import lsqr, lsmr, svds
 from scipy.sparse import hstack
@@ -18,6 +17,8 @@ from matplotlib import pyplot as plt
 import ipdb
 import scipy.io as sio
 from lib.console_progress import ConsoleProgress
+import phi_ds
+import x_matrix
 
 args = []
 args_set = None
@@ -31,7 +32,7 @@ ACCEPTED_LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'WARN']
 N_TAZ = 321
 N_TAZ_CONDENSED = 150
 N_ROUTES = 280691
-N_ROUTES_CONDENSED = 280691
+N_ROUTES_CONDENSED = 60394
 N_SENSORS = 1033
 FIRST_ROUTE = 0
 
@@ -39,83 +40,6 @@ FIRST_ROUTE = 0
 TEST_ORIGIN = 123
 TEST_DESTINATION = 10
 TEST_ROUTE = 0
-
-def generate_od_travel_time_pairs():
-    gen_tt = ConsoleProgress(N_TAZ, args.verbose, message="Loading travel times")
-    od_pair_matrix = [[{} for x in range(N_TAZ)] for y in range(N_TAZ)]
-    with open(data_prefix+'/travel_times.csv') as fopen:
-        reader = csv.reader(fopen,delimiter=',')
-        firstline = fopen.readline()   # skip the first line
-        for row in reader:
-            od_pair_matrix[int(row[0])][int(row[1])][int(row[2])] = float(int(row[3]))
-            gen_tt.update_progress(int(row[0]))
-    gen_tt.finish()
-    return od_pair_matrix
-
-def sigmoid(x):
-    return 1.0 / (1.0 + math.exp(-float(x)))
-
-def generate_routing_matrix(data, use_travel_times):
-    """
-    Given the route index associated with each OD pair, generate a routing matrix.
-    """
-    X = lil_matrix((N_SENSORS, N_TAZ_CONDENSED*N_TAZ_CONDENSED))
-    x = np.zeros(N_ROUTES_CONDENSED)
-    x_ind = 0
-    if use_travel_times:
-        od_pair_travel_times = generate_od_travel_time_pairs()
-    x_gen_progress = ConsoleProgress(N_ROUTES_CONDENSED, args.verbose, message="Generating X and U matrices")
-    U = lil_matrix((N_TAZ_CONDENSED*(N_TAZ_CONDENSED-1), N_ROUTES_CONDENSED))
-    # For efficiency, the if statement is surrounding these loops so it doesn't check every iteration
-    if use_travel_times:
-        for i_ind, i in enumerate(np.arange(N_TAZ)):
-            for j_jnd, j jn enumerate(np.arange(N_TAZ)):
-                if data[i].get(j):
-                    if data[i][j]:
-                        travel_times = od_pair_travel_times[i][j]
-                        mean_tt = np.mean(travel_times.values())
-                        std_tt = np.std(travel_times.values())
-                        if std_tt == 0:
-                            std_tt = 1
-                        travel_times = {rt : (float(tt-mean_tt) / std_tt) for rt, tt in travel_times.items()}
-                        travel_times = {rt : sigmoid(tt) for rt, tt in travel_times.items()}
-                        normalizer = float(sum(travel_times.values()))
-                        travel_times = {rt : float(tt)/normalizer for rt, tt in travel_times.items()}
-                        for route, sensors in enumerate(data[i][j]):
-                            tt = travel_times[route]
-                            for s in sensors:
-                                X[s,i*N_TAZ+j] += tt
-                            if i in condensed_map and j in condensed_map:
-                                x[x_ind] = tt
-                                row_index = i_ind*(N_TAZ_CONDENSED-1)+j_ind
-                                if j_ind > i_ind:
-                                    row_index -= 1
-                                U[row_index, x_ind] = 1
-                                x_ind = x_ind + 1
-                                x_gen_progress.update_progress(x_ind)
-    else:
-        for i_ind, i in enumerate(np.arange(N_TAZ)):
-            for j_jnd, j jn enumerate(np.arange(N_TAZ)):
-                if data[i].get(j):
-                    if data[i][j]:
-                        for route, sensors in enumerate(data[i][j]):
-                            if route == FIRST_ROUTE:
-                                for s in sensors:
-                                    X[s,i*N_TAZ+j] = 1
-                                x[x_ind] = 1
-                            if i in condensed_map and j in condensed_map:
-                                row_index = i_ind*(N_TAZ_CONDENSED-1)+j_ind
-                                if j_ind > i_ind:
-                                    row_index -= 1
-                                U[row_index, x_ind] = 1
-                                x_ind += 1
-                                x_gen_progress.update_progress(x_ind)
-    print "N_ROUTES_CONDENSED:", x_ind
-    N_ROUTES_CONDENSED = x_ind
-    x_gen_progress.finish()
-    U = U[:, 0:x_ind-1]
-    x = x[0:x_ind-1]
-    return [X, U, x]
 
 def main():
     global args_set, data_prefix
@@ -143,6 +67,8 @@ def main():
                        const=True, default=False, action='store_const',
                        help='Use real sensors for tomography. (default: False)')
     args_set = parser.parse_args()
+
+    ConsoleProgress.verbose = args_set.verbose
     if args_set.verbose:
         logging.basicConfig(level=logging.DEBUG)
     if args_set.log in ACCEPTED_LOG_LEVELS:
@@ -157,6 +83,8 @@ def main():
         data_prefix = args_set.prefix[:-1]
     else:
         data_prefix = args_set.prefix
+    phi_ds.Phi.data_prefix = data_prefix
+    x_matrix.XMatrix.data_prefix = data_prefix
     args = args_set
 
 if __name__ == "__main__":
@@ -164,32 +92,14 @@ if __name__ == "__main__":
     args = args_set
 
 condensed_map = pickle.load(open(data_prefix+"/condensed_od_map.pickle"))
+full_phi = phi_ds.Phi()
 
-# It intersects the following sensors.
-
-X = None
-if args.compute_x:
-    # Load the data.
-    data_progress = ConsoleProgress(1, args.verbose, message="Loading phi")
-    data = pickle.load(open(data_prefix+'/phi.pickle'))
-    route_phi = data
-    data_progress.finish()
-    X, U, x = generate_routing_matrix(data, args.travel_times)
-    sio.savemat(data_prefix+'/X_matrix.mat', {'X':X, 'x':x, 'U':U})
-else:
-    x_load_progress = ConsoleProgress(1, args.verbose, message="Loading X matrix from file")
-    loaded_data = sio.loadmat(data_prefix+'/X_matrix.mat')
-    X = loaded_data['X']
-    U = loaded_data['U']
-    x = loaded_data['x']
-    x_load_progress.finish()
-    if args.verify_routes:
-        route_phi = pickle.load(open(data_prefix+'/phi.pickle'))
+x_matrix = x_matrix.XMatrix(args.compute_x, full_phi, condensed_map=condensed_map, use_travel_times=args.travel_times)
 
 if args.verify_routes:
-    sensors = route_phi[TEST_ORIGIN][TEST_DESTINATION][TEST_ROUTE]
+    sensors = full_phi.data()[TEST_ORIGIN][TEST_DESTINATION][TEST_ROUTE]
     print "Data loaded, sample path: %s" % str(sensors)
-    
+
 # Read pre-computed trip counts for all OD pairs (simulated with radiation model)
 rad, TAZ = np.zeros((N_TAZ,N_TAZ)), np.zeros(N_TAZ)
 load_radiation_progress = ConsoleProgress(N_TAZ*N_TAZ, args.verbose, message="Loading radiation model heuristic")
@@ -218,23 +128,21 @@ if Use_Real_Sensors:
           yescounts.append(int(row[0]))
       else:
           nocounts.append(int(row[0]))
-    
-  
   radflow = (sensors.sum()/np.sum(X*radflow))*radflow
-               
-               
-if not Use_Real_Sensors:    
-  # right side for the tomogravity model + noise 
-  sensors = X*(radflow + 100*np.random.rand((N_TAZ*N_TAZ),1))    
-  yescounts = np.arange(N_SENSORS)
-  
 
-##    
+
+if not Use_Real_Sensors:
+  # right side for the tomogravity model + noise 
+  sensors = x_matrix.X*(radflow + 100*np.random.rand((N_TAZ*N_TAZ),1))
+  yescounts = np.arange(N_SENSORS)
+
+
+#
 # wlse_tomogravity solved with sparse least squares   
 #
 lsqr_progress = ConsoleProgress(5, args.verbose, message='Solving LSQR')
-bw = sensors - X*radflow
-Xcsr = csr_matrix(X)
+bw = sensors - x_matrix.X*radflow
+Xcsr = csr_matrix(x_matrix.X)
 lsqr_progress.update_progress(1)
 tw = lsqr(Xcsr[yescounts,:], bw[yescounts], damp = 100)[0]
 
@@ -256,13 +164,14 @@ lsqr_progress.finish()
 #t_svd = radflow[:,0] + tw
 
 ## back-substitution to check the results
-c_lsqr = X*t
+c_lsqr = x_matrix.X*t
 #c_svd = X*t_svd
-c_rad = X*radflow[:,0]
+c_rad = x_matrix.X*radflow[:,0]
 
 # plot LSQR solution vs sensors
 plt.plot(c_lsqr,sensors,'ro')
 plt.show()
+sio.savemat(data_prefix+'/sensor_fit.mat', {'lsqr_soln':c_lsqr, 'true':sensors})
 #plt.plot(c_svd,sensors,'bo')
 
 flow_model = np.array(t.reshape((N_TAZ,N_TAZ)))
@@ -282,13 +191,8 @@ sf = shapefile.Reader(data_prefix+'/ods.shp')
 records = sf.records()
 for i in range(len(records)):
   pop[records[i][3]] = float(records[i][4])
-  
-A = lil_matrix((N_SENSORS, N_ROUTES_CONDENSED))
 
-if not ('route_phi' in locals() or 'route_phi' in globals()):
-    load_phi_progress = ConsoleProgress(1, args.verbose, message="Loading phi")
-    route_phi = pickle.load(open(data_prefix+'/phi.pickle'))
-    load_phi_progress.finish()
+A = lil_matrix((N_SENSORS, N_ROUTES_CONDENSED))
 
 if args.compute_a:
     a_gen_progress = ConsoleProgress(N_ROUTES, args.verbose, message="Generating A matrix")
@@ -301,7 +205,7 @@ if args.compute_a:
             fout.write('%s,%s,%s,%s,%s,%s,%s\n' % (data[0][i], data[j][0], rlookup[data[0][i]], rlookup[data[j][0]], data[i][j], pop[data[0][i]], max(0, flow_model[rlookup[data[0][i]], rlookup[data[j][0]]])))
             origin, destination = rlookup[data[0][i]], rlookup[data[j][0]]
             if origin in condensed_map and destination in condensed_map:
-                routes = route_phi[origin][destination]
+                routes = full_phi.data()[origin][destination]
                 for route_index, row_indices in enumerate(routes):
                     for row_index in row_indices:
                         A[row_index, col_index] = max(0, flow_model[origin, destination])
@@ -313,4 +217,4 @@ else:
     A = loaded_data['A']
     sensors = loaded_data['b']
 
-sio.savemat(data_prefix+'/route_assignment_matrices.mat', {'A':A, 'U':U, 'x':x, 'b':sensors})
+sio.savemat(data_prefix+'/route_assignment_matrices.mat', {'A':A, 'U':x_matrix.U, 'x':x_matrix.x, 'b':sensors})

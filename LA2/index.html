@@ -77,8 +77,9 @@
       
       layer.on("click", function(l){
         routes.clearLayers();
-        if(start != undefined)
+        if(start != undefined) {
           start.setStyle({color: '#0000ff'});
+        }
         start = layer;
         
         o = start.feature.properties.TAZ_ID + '.0';
