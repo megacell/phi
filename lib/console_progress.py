@@ -13,6 +13,7 @@ class ConsoleProgress:
             return
         self.message = message
         self.size = size
+        self.current_state = 0
         self.start_time = time.time()
         if message:
             logging.info(message+"...")
@@ -20,10 +21,14 @@ class ConsoleProgress:
             print
 
     def update_progress(self, index):
+        self.current_state = index
         if not self.verbose:
             return
         sys.stdout.write("\r{0:.2f}%".format(100*float(index)/self.size))
         sys.stdout.flush()
+
+    def increment_progress(self):
+        self.update_progress(self.current_state + 1)
 
     def finish(self):
         if not self.verbose:

@@ -63,7 +63,7 @@ class XMatrix:
         x_ind = 0
         if use_travel_times:
             od_pair_travel_times = self.generate_od_travel_time_pairs()
-        x_gen_progress = ConsoleProgress(self.N_ROUTES_CONDENSED, message="Generating X and U matrices")
+        x_gen_progress = ConsoleProgress(self.N_ROUTES, message="Generating X and U matrices")
         self.U = lil_matrix((self.N_TAZ_CONDENSED*(self.N_TAZ_CONDENSED-1), self.N_ROUTES_CONDENSED))
         # For efficiency, the if statement is surrounding these loops so it doesn't check every iteration
         if use_travel_times:
@@ -93,7 +93,7 @@ class XMatrix:
                                         row_index -= 1
                                     self.U[row_index, x_ind] = 1
                                     x_ind = x_ind + 1
-                                    x_gen_progress.update_progress(x_ind)
+                                x_gen_progress.increment_progress()
         else:
             for i in np.arange(self.N_TAZ):
                 for j in np.arange(self.N_TAZ):
@@ -112,5 +112,5 @@ class XMatrix:
                                         row_index -= 1
                                     self.U[row_index, x_ind] = 1
                                     x_ind += 1
-                                    x_gen_progress.update_progress(x_ind)
+                                x_gen_progress.increment_progress()
         x_gen_progress.finish()
