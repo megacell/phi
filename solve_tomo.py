@@ -130,12 +130,10 @@ if Use_Real_Sensors:
           nocounts.append(int(row[0]))
   radflow = (sensors.sum()/np.sum(X*radflow))*radflow
 
-
 if not Use_Real_Sensors:
   # right side for the tomogravity model + noise 
   sensors = x_matrix.X*(radflow + 100*np.random.rand((N_TAZ*N_TAZ),1))
   yescounts = np.arange(N_SENSORS)
-
 
 #
 # wlse_tomogravity solved with sparse least squares   
@@ -150,26 +148,13 @@ tw = lsqr(Xcsr[yescounts,:], bw[yescounts], damp = 100)[0]
 t = radflow[:,0] + tw
 lsqr_progress.finish()
 
-### 
-##  Pseudo-inv via SVD
-##
-#u,s,v = svds(Xcsr[yescounts,:],500)
-#invs = np.diag(1/s)
-#invX = csr_matrix(np.dot(v.T,np.dot(invs,u.T)))
-#tw = invX*bw[yescounts,:]
-#
-#print "%s: SVD solved" % str(time.time()-t0)  
-#
-## transform tw back to t
-#t_svd = radflow[:,0] + tw
-
-## back-substitution to check the results
 c_lsqr = x_matrix.X*t
-#c_svd = X*t_svd
 c_rad = x_matrix.X*radflow[:,0]
 
 # plot LSQR solution vs sensors
+plt.hold(True)
 plt.plot(c_lsqr,sensors,'ro')
+plt.plot(c_rad,sensors,'bx')
 plt.show()
 sio.savemat(data_prefix+'/sensor_fit.mat', {'lsqr_soln':c_lsqr, 'true':sensors})
 #plt.plot(c_svd,sensors,'bo')
