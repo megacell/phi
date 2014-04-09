@@ -12,7 +12,7 @@ def sigmoid(x):
 class XMatrix:
     data_prefix = ""
     N_TAZ = 321
-    N_TAZ_CONDENSED = 150
+    N_TAZ_CONDENSED = 75
     N_ROUTES = 280691
     N_ROUTES_CONDENSED = 60394
     N_SENSORS = 1033

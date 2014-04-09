@@ -8,7 +8,7 @@ from lib.console_progress import ConsoleProgress
 
 data_prefix = 'data'
 N_TAZ = 321
-N_TAZ_TARGET = 150
+N_TAZ_TARGET = 75
 FUZZY_DIST = 10
 
 def route_sensors(route):
@@ -40,6 +40,8 @@ lookup = pickle.load(open(data_prefix+'/lookup.pickle'))
 files = os.listdir(data_prefix+'/data')
 
 selected_origins = random.sample(xrange(N_TAZ), N_TAZ_TARGET)
+ll = [lookup[o] for o in selected_origins]
+print ll
 
 origins = {}
 for file in files:

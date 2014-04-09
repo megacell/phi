@@ -19,6 +19,9 @@ import scipy.io as sio
 from lib.console_progress import ConsoleProgress
 import phi_ds
 import x_matrix
+import radiation_model
+import sensors
+import itertools
 
 args = []
 args_set = None
@@ -30,7 +33,7 @@ ACCEPTED_LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'WARN']
 #############
 # Size of problem
 N_TAZ = 321
-N_TAZ_CONDENSED = 150
+N_TAZ_CONDENSED = 75
 N_ROUTES = 280691
 N_ROUTES_CONDENSED = 60394
 N_SENSORS = 1033
@@ -85,6 +88,7 @@ def main():
         data_prefix = args_set.prefix
     phi_ds.Phi.data_prefix = data_prefix
     x_matrix.XMatrix.data_prefix = data_prefix
+    radiation_model.RadiationModel.data_prefix = data_prefix
     args = args_set
 
 if __name__ == "__main__":
@@ -101,39 +105,15 @@ if args.verify_routes:
     print "Data loaded, sample path: %s" % str(sensors)
 
 # Read pre-computed trip counts for all OD pairs (simulated with radiation model)
-rad, TAZ = np.zeros((N_TAZ,N_TAZ)), np.zeros(N_TAZ)
-load_radiation_progress = ConsoleProgress(N_TAZ*N_TAZ, args.verbose, message="Loading radiation model heuristic")
-with open(data_prefix+'/trips.csv') as file:
-  reader = csv.reader(file,delimiter=',')
-  firstline = file.readline()   # skip the first line
-  for prog, row in enumerate(reader):
-    rad[int(row[2]),int(row[3])] = int(float(row[6]))        
-    load_radiation_progress.update_progress(prog)
-load_radiation_progress.finish()
-
-radflow = rad.reshape((N_TAZ*N_TAZ,1))
+rad_model = radiation_model.RadiationModel()
+radflow = rad_model.as_flow()
 
 Use_Real_Sensors = args.real_sensors
 
-if Use_Real_Sensors:
-  # Real count data from PEMS
-  day_num = 3
-  sensors, nocounts, yescounts = np.zeros((1033,1)), [], []
-  with open(data_prefix+'/sensor_counts2.csv') as file:
-    reader = csv.reader(file,delimiter=',')
-    firstline = file.readline()   # skip the first line
-    for row in reader:
-      if not row[day_num]=='nan':
-          sensors[int(row[0]),0] = int(float(row[day_num]))
-          yescounts.append(int(row[0]))
-      else:
-          nocounts.append(int(row[0]))
-  radflow = (sensors.sum()/np.sum(X*radflow))*radflow
-
-if not Use_Real_Sensors:
-  # right side for the tomogravity model + noise 
-  sensors = x_matrix.X*(radflow + 100*np.random.rand((N_TAZ*N_TAZ),1))
-  yescounts = np.arange(N_SENSORS)
+sensor_data = sensors.Sensors(Use_Real_Sensors, x_matrix, radflow)
+radflow = sensor_data.get_flow()
+sensors = sensor_data.sensors
+yescounts = sensor_data.yescounts
 
 #
 # wlse_tomogravity solved with sparse least squares   
@@ -144,6 +124,8 @@ Xcsr = csr_matrix(x_matrix.X)
 lsqr_progress.update_progress(1)
 tw = lsqr(Xcsr[yescounts,:], bw[yescounts], damp = 100)[0]
 
+plt.hold(True)
+
 # transform tw back to t
 t = radflow[:,0] + tw
 lsqr_progress.finish()
@@ -151,13 +133,20 @@ lsqr_progress.finish()
 c_lsqr = x_matrix.X*t
 c_rad = x_matrix.X*radflow[:,0]
 
+indexes = [i*N_TAZ_CONDENSED+j for (i, j) in itertools.combinations(condensed_map.keys(), 2)]
+t_sampled = t[np.array(indexes)]
+
 # plot LSQR solution vs sensors
-plt.hold(True)
-plt.plot(c_lsqr,sensors,'ro')
-plt.plot(c_rad,sensors,'bx')
-plt.show()
+# TODO: make this a command line flag to plot
+# plt.hold(True)
+# plt.plot(c_lsqr,sensors,'ro')
+# plt.show()
 sio.savemat(data_prefix+'/sensor_fit.mat', {'lsqr_soln':c_lsqr, 'true':sensors})
-#plt.plot(c_svd,sensors,'bo')
+
+plt.hist(t, bins=100, histtype='stepfilled', normed=True, color='b', label='Full')
+plt.hist(t_sampled, bins=100, histtype='stepfilled', normed=True, color='r', alpha=0.5, label='Subsampled')
+plt.legend()
+plt.show()
 
 flow_model = np.array(t.reshape((N_TAZ,N_TAZ)))
 
