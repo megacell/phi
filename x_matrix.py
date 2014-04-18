@@ -6,13 +6,16 @@ import scipy.io as sio
 import csv
 import math
 
+# Used to find the index associated with an OD pair
+od_back_map = {}
+
 def sigmoid(x):
     return 1.0 / (1.0 + math.exp(-float(x)))
 
 class XMatrix:
     data_prefix = ""
     N_TAZ = 321
-    N_TAZ_CONDENSED = 75
+    N_TAZ_CONDENSED = 150
     N_ROUTES = 280691
     N_ROUTES_CONDENSED = 60394
     N_SENSORS = 1033
@@ -105,6 +108,7 @@ class XMatrix:
                                         self.X[s,i*self.N_TAZ+j] = 1
                                     self.x[x_ind] = 1
                                 if i in self.condensed_map and j in self.condensed_map:
+                                    od_back_map[x_ind] = (i, j)
                                     i_ind = self.condensed_map[i]
                                     j_ind = self.condensed_map[j]
                                     row_index = i_ind*(self.N_TAZ_CONDENSED-1)+j_ind
@@ -113,4 +117,5 @@ class XMatrix:
                                     self.U[row_index, x_ind] = 1
                                     x_ind += 1
                                 x_gen_progress.increment_progress()
+        pickle.dump(od_back_map, open(self.__class__.data_prefix+'/od_back_map.pickle', 'wb'))
         x_gen_progress.finish()

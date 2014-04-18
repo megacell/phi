@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="css/leaflet.css" />
 
+<script src="/_LA/valid_taz.js"></script>
 <script src="/pico/client.js"></script>
 <script>pico.load("routing");</script>
 
@@ -53,6 +54,42 @@ function objToString (obj) {
   return str;
 }
 
+function interpolate( val, y0, x0, y1, x1 ) {
+      return (val-x0)*(y1-y0)/(x1-x0) + y0;
+}
+
+function base( val ) {
+      if ( val <= -0.75 ) return 0;
+          else if ( val <= -0.25 ) return interpolate( val, 0.0, -0.75, 1.0, -0.25 );
+              else if ( val <= 0.25 ) return 1.0;
+                  else if ( val <= 0.75 ) return interpolate( val, 1.0, 0.25, 0.0, 0.75 );
+                      else return 0.0;
+}
+
+function red( gray ) {
+      return Math.floor(255*base( gray - 0.5 ));
+}
+function green( gray ) {
+      return Math.floor(255*base( gray ));
+}
+function blue( gray ) {
+      return Math.floor(255*base( gray + 0.5 ));
+}
+
+function color_from_taz( TAZ ) {
+  TAZ = parseFloat(TAZ);
+  if (valid_taz.indexOf(TAZ) >= 0) {
+    return '#0000ff';
+  } else {
+    return '#000000';
+  }
+}
+
+function jet_colors(value) {
+  var s = 'rgb('+[red(value), green(value), blue(value)].join(',')+')';
+  return s;
+}
+
 var colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'];
 
 start = undefined;
@@ -63,16 +100,53 @@ var map = L.map('map', {attributionControl: false}).setView([34.096, -117.948], 
 var routes = L.featureGroup();
 routes.addTo(map);
 
+var worst_routes = L.featureGroup();
+worst_routes.addTo(map);
+
 var sensors = L.featureGroup();
 sensors.addTo(map);
 
 var intersects = L.featureGroup();
 intersects.addTo(map);
+function handle_sensor(sensor_data){
+var d = sensor_data['loc'];
+var percent_error = Math.abs(sensor_data['true'] - sensor_data['predicted']) / sensor_data['true'];
+var sensor = L.circle([d[1], d[0]], 25, {
+color: '#000000',
+fillColor: jet_colors(percent_error),
+weight: 1,
+fillOpacity: 1.0
+});
+sensor.bindPopup('True value: '+sensor_data['true']+'<br />\n'+'Predicted: '+sensor_data['predicted']);
+intersects.addLayer(sensor);
+}
+
+function handle_routes(rts, fg) {
+  rts.routes.forEach(function(d, i){
+    var split_color = jet_colors(Math.abs(d.split_error));
+    polyline = new L.Polyline(decode(d.overview_polyline.points), {
+      color: split_color,
+      opacity: 1.0
+    });
+
+    var distance = 0.0;
+    var duration = 0.0;
+    d.legs.forEach(function(leg){
+      distance += leg.distance.value;
+      duration += leg.duration.value;
+    })
+    polyline.bindPopup("alternative: " + i + "<br>distance: " + (Math.round((distance / 5280.0) * 100) / 100.0) + " miles<br>duration: " + (Math.round((duration / 60.0) * 100) / 100.0)  + " mins<br />True split: "+d.true_split+"<br />Predicted split: "+d.predicted_split);
+    polyline.on('popupopen', function(e){ e.target.setStyle({weight:10, color:'black'})});
+    polyline.on('popupclose', function(e){ e.target.setStyle({weight:5, color:split_color})});
+    fg.addLayer(polyline);
+  });
+}
 
 var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer) {
     if (feature.properties) {
     layer.id = count;
-    layer.setStyle({weight: 3, opacity: 0.4});
+    taz = feature.properties.TAZ_ID + '.0';
+    layer.setStyle({weight: 3, opacity: 0.4, color: color_from_taz(taz)});
     }
 
     layer.on("click", function(l){
@@ -80,7 +154,8 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
       intersects.clearLayers();
 
       if (start == layer){
-      start.setStyle({color: '#0000ff'});
+      start_taz = start.feature.properties.TAZ_ID + '.0';
+      start.setStyle({color: color_from_taz(start_taz)});
       start = undefined;
       if (end != undefined) {
         o = end.feature.properties.TAZ_ID + '.0';
@@ -105,16 +180,7 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
             });
             if (scale(TMP[o][d].value) > 1) {
               routing.sensors(pointList, function(data) {
-                  data.forEach(function(sensor_data){
-                    var d = sensor_data['loc'];
-                    var sensor = L.circle([d[1], d[0]], 10, {
-                      color: 'yellow',
-                      fillColor: 'yellow',
-                      fillOpacity: 1.0
-                      });
-                    sensor.bindPopup('True value: '+sensor_data['true']+'<br />\n'+'Predicted: '+sensor_data['predicted']);
-                    intersects.addLayer(sensor);
-                    });
+                  data.forEach(handle_sensor);
                   });
             }
             var pl = new L.Polyline(pointList, {
@@ -127,7 +193,8 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
         }
       }
       } else if (end == layer){
-        layer.setStyle({color: '#0000ff'})
+        end_taz = end.feature.properties.TAZ_ID + '.0';
+        end.setStyle({color: color_from_taz(end_taz)});
       end = undefined;
       if (start != undefined) {
         o = start.feature.properties.TAZ_ID + '.0';
@@ -152,16 +219,7 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
             });
             if (scale(TMP[o][d].value) > 1) {
               routing.sensors(pointList, function(data) {
-                  data.forEach(function(sensor_data){
-                    var d = sensor_data['loc'];
-                    var sensor = L.circle([d[1], d[0]], 10, {
-                      color: 'yellow',
-                      fillColor: 'yellow',
-                      fillOpacity: 1.0
-                      });
-                    sensor.bindPopup('True value: '+sensor_data['true']+'<br />\n'+'Predicted: '+sensor_data['predicted']);
-                    intersects.addLayer(sensor);
-                    });
+                  data.forEach(handle_sensor);
                   });
             }
             var pl = new L.Polyline(pointList, {
@@ -201,16 +259,7 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
             });
             if (scale(TMP[o][d].value) > 1) {
               routing.sensors(pointList, function(data) {
-                  data.forEach(function(sensor_data){
-                    var d = sensor_data['loc'];
-                    var sensor = L.circle([d[1], d[0]], 10, {
-                      color: 'yellow',
-                      fillColor: 'yellow',
-                      fillOpacity: 1.0
-                      });
-                    sensor.bindPopup('True value: '+sensor_data['true']+'<br />\n'+'Predicted: '+sensor_data['predicted']);
-                    intersects.addLayer(sensor);
-                    });
+                  data.forEach(handle_sensor);
                   });
             }
             var pl = new L.Polyline(pointList, {
@@ -230,34 +279,18 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
       if (start != undefined && end != undefined){
         var origin = start.getBounds().getCenter();
         var destination = end.getBounds().getCenter();
-        console.log(origin.lat + ',' + origin.lng + ',' + destination.lat + ',' + destination.lng);
-        routing.plan(origin.lat, origin.lng, destination.lat, destination.lng, function(data){
+        var o = start.feature.properties.TAZ_ID + '.0';
+        var d = end.feature.properties.TAZ_ID + '.0';
+        console.log(o);
+        console.log(d);
+        routing.plan(origin.lat, origin.lng, destination.lat, destination.lng, o, d, function(data){
             intersects.clearLayers();
-            data[0].routes.forEach(function(d, i){
-              polyline = new L.Polyline(decode(d.overview_polyline.points), {color: colors[i+1], opacity: 1.0});
+            handle_routes(data[0], routes);
 
-              var distance = 0.0;
-              var duration = 0.0;
-              d.legs.forEach(function(leg){
-                distance += leg.distance.value;
-                duration += leg.duration.value;
-                })
-              polyline.bindPopup("alternative: " + i + "<br>distance: " + (Math.round((distance / 5280.0) * 100) / 100.0) + " miles<br>duration: " + (Math.round((duration / 60.0) * 100) / 100.0)  + " mins");
-              routes.addLayer(polyline);
-              });
-
-            data[1].forEach(function(sensor_data){
-                var d = sensor_data['loc'];
-                var sensor = L.circle([d[1], d[0]], 10, {
-color: 'yellow',
-fillColor: 'yellow',
-fillOpacity: 1.0
-});
-                sensor.bindPopup('True value: '+sensor_data['true']+'<br />\n'+'Predicted: '+sensor_data['predicted']);
-                intersects.addLayer(sensor);
-                });
-});
+            data[1].forEach(handle_sensor);
+            })
 }
+worst_routes.bringToFront();
 });
 
 count += 1;
@@ -271,9 +304,10 @@ if(count == 321){
 
   d3.csv("data/sensors.csv", function(data) {
       data.forEach(function(d){
-        var sensor = L.circle([d.Latitude, d.Longitude], 10, {
-color: 'red',
+        var sensor = L.circle([d.Latitude, d.Longitude], 25, {
+color: 'black',
 fillColor: '#f03',
+weight: 1,
 fillOpacity: 0.5
 });
         sensor.bindPopup(objToString(d));
@@ -283,6 +317,10 @@ fillOpacity: 0.5
 }
 }});
 ods.addTo(map);
+
+routing.get_worst_routes(function(data) {
+    handle_routes(data, worst_routes);
+});
 
 var defaultLayer = L.tileLayer.provider('OpenStreetMap.Mapnik').addTo(map);
 

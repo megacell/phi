@@ -4,27 +4,47 @@ import requests
 import pickle
 import scipy.io as sio
 import numpy as np
+import json
+from collections import defaultdict
 from django.contrib.gis.geos import Point, LineString
 
 DATA_PATH = '/home/steve/megacell/datasets'
 FUZZY_DIST = 10
+NUM_WORST_ROUTES = 10
+
+sensor_data = sio.loadmat(open("{0}/Phi/sensor_fit.mat".format(DATA_PATH)))
+lsqr = np.squeeze(np.asarray(sensor_data['lsqr_soln']))
+true_sensor_value = np.squeeze(np.asarray(sensor_data['true']))
+
+back_map = pickle.load(open("{0}/Phi/od_back_map.pickle".format(DATA_PATH)))
+condensed_map = defaultdict(list)
+for k, v in back_map.iteritems():
+    condensed_map[v].append(k)
+
+route_split = sio.loadmat(open("{0}/Phi/outputSmallData.mat".format(DATA_PATH)))
+route_split['x'] = np.squeeze(np.asarray(route_split['xLBFGS']))
+route_split['x_true'] = np.squeeze(np.asarray(route_split['x_true']))
+
+lookup = pickle.load(open("{0}/Phi/lookup.pickle".format(DATA_PATH)))
+rlookup = {}
+for index in lookup:
+  rlookup[lookup[index]] = index
+
+points = pickle.load(open("{0}/Phi/sensors.pickle".format(DATA_PATH)))
+
+def build_point_dictionary(point):
+  x,y = point.x, point.y
+  point.set_srid(4326)
+  point.transform(900913)
+  return {
+    'map': [x, y],
+    'compare': point
+  }
+sensors_transformed = [build_point_dictionary(p) for p in points]
 
 def sensors(point_list):
-    points = pickle.load(open("{0}/Phi/sensors.pickle".format(DATA_PATH)))
-    sensor_data = sio.loadmat(open("{0}/Phi/sensor_fit.mat".format(DATA_PATH)))
-    lsqr = np.squeeze(np.asarray(sensor_data['lsqr_soln']))
-    true_sensor_value = np.squeeze(np.asarray(sensor_data['true']))
     route = LineString([[point['lng'], point['lat']] for point in point_list], srid=4326)
     route.transform(900913)
-    def build_point_dictionary(point):
-      x,y = point.x, point.y
-      point.set_srid(4326)
-      point.transform(900913)
-      return {
-        'map': [x, y],
-        'compare': point
-      }
-    sensors_transformed = [build_point_dictionary(p) for p in points]
     sensor_map = []
     for sensor_ind, sensor in enumerate(sensors_transformed):
       if sensor['compare'].distance(route) < FUZZY_DIST:
@@ -35,26 +55,26 @@ def sensors(point_list):
           })
     return sensor_map
 
-def plan(x1, y1, x2, y2):
-  url = 'http://maps.googleapis.com/maps/api/directions/json?origin=%s,%s&destination=%s,%s&sensor=false&alternatives=true'
-  r = requests.get(url % (x1, y1, x2, y2))
-  json = r.json()
-  routes = json['routes']
-  points = pickle.load(open("{0}/Phi/sensors.pickle".format(DATA_PATH)))
-  sensor_data = sio.loadmat(open("{0}/Phi/sensor_fit.mat".format(DATA_PATH)))
-  lsqr = np.squeeze(np.asarray(sensor_data['lsqr_soln']))
-  true_sensor_value = np.squeeze(np.asarray(sensor_data['true']))
+def plan(x1, y1, x2, y2, o, d):
+  o = rlookup[float(o)]
+  d = rlookup[float(d)]
+  #url = 'http://maps.googleapis.com/maps/api/directions/json?origin=%s,%s&destination=%s,%s&sensor=false&alternatives=true'
+  #r = requests.get(url % (x1, y1, x2, y2))
+  #json_ = r.json()
+  json_ = json.load(open('{0}/Phi/data/%s_%s.json'.format(DATA_PATH) % (o, d)))
+  routes = json_['routes']
   sensor_map = []
-  def build_point_dictionary(point):
-    x,y = point.x, point.y
-    point.set_srid(4326)
-    point.transform(900913)
-    return {
-      'map': [x, y],
-      'compare': point
-    }
-  sensors_transformed = [build_point_dictionary(p) for p in points]
   for route_index, route in enumerate(routes):
+    if (o, d) in condensed_map:
+        predicted_split = route_split['x'][condensed_map[(o, d)][route_index]]
+        true_split = route_split['x_true'][condensed_map[(o, d)][route_index]]
+        json_['routes'][route_index]['predicted_split'] = predicted_split
+        json_['routes'][route_index]['true_split'] = true_split
+        json_['routes'][route_index]['split_error'] = predicted_split - true_split
+    else:
+        json_['routes'][route_index]['split_error'] = 'black'
+        json_['routes'][route_index]['predicted_split'] = 'OD pair omitted from calculation'
+        json_['routes'][route_index]['true_split'] = 'OD pair omitted from calculation'
     ls = decode_line(route['overview_polyline']['points'])
     ls.set_srid(4326)
     ls_4326 = ls.clone()
@@ -67,7 +87,38 @@ def plan(x1, y1, x2, y2):
               'predicted':lsqr[sensor_ind]
           })
 
-  return [json, sensor_map]
+  return [json_, sensor_map]
+
+def get_worst_routes():
+    diff = route_split['x'] - route_split['x_true']
+    worst_routes, indices = thresholder(diff, NUM_WORST_ROUTES)
+    json_ = {'routes': {}}
+    for idx in indices:
+        o, d = back_map[idx]
+        od_pair_json = json.load(open('{0}/Phi/data/%s_%s.json'.format(DATA_PATH) % (o, d)))
+        routes = od_pair_json['routes']
+        sensor_map = []
+        for route_index, route in enumerate(routes):
+            if condensed_map[(o, d)][route_index] != idx:
+                continue
+            predicted_split = route_split['x'][idx]
+            true_split = route_split['x_true'][idx]
+            json_['routes'][idx] = route
+            json_['routes'][idx]['predicted_split'] = predicted_split
+            json_['routes'][idx]['true_split'] = true_split
+            json_['routes'][idx]['split_error'] = predicted_split - true_split
+    json_['routes'] = [v for k, v in json_['routes'].iteritems()]
+    return json_
+
+def thresholder(y,m):
+    ys_idx = np.argsort(-np.abs(y))
+    support_idx = ys_idx[:m]
+
+    y_thresh = np.zeros(y.size)
+    y_thresh[support_idx] = y[support_idx]
+
+    thresh = y[ys_idx[m]] if m < y.size else 0 # smallest zeroed value
+    return y_thresh, support_idx
 
 def decode_line(encoded):
     """Decodes a polyline that was encoded using the Google Maps method.

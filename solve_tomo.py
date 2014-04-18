@@ -33,7 +33,7 @@ ACCEPTED_LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'WARN']
 #############
 # Size of problem
 N_TAZ = 321
-N_TAZ_CONDENSED = 75
+N_TAZ_CONDENSED = 150
 N_ROUTES = 280691
 N_ROUTES_CONDENSED = 60394
 N_SENSORS = 1033
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     main()
     args = args_set
 
-condensed_map = pickle.load(open(data_prefix+"/condensed_od_map.pickle"))
+condensed_map = pickle.load(open(data_prefix+"/small_condensed_map.pickle"))
 full_phi = phi_ds.Phi()
 
 x_matrix = x_matrix.XMatrix(args.compute_x, full_phi, condensed_map=condensed_map, use_travel_times=args.travel_times)
