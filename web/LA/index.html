@@ -146,6 +146,7 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
     if (feature.properties) {
     layer.id = count;
     taz = feature.properties.TAZ_ID + '.0';
+    console.log(taz);
     layer.setStyle({weight: 3, opacity: 0.4, color: color_from_taz(taz)});
     }
 
