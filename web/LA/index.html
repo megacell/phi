@@ -135,7 +135,7 @@ function handle_routes(rts, fg) {
       distance += leg.distance.value;
       duration += leg.duration.value;
     })
-    polyline.bindPopup("alternative: " + i + "<br>distance: " + (Math.round((distance / 5280.0) * 100) / 100.0) + " miles<br>duration: " + (Math.round((duration / 60.0) * 100) / 100.0)  + " mins<br />True split: "+d.true_split+"<br />Predicted split: "+d.predicted_split);
+    polyline.bindPopup("alternative: " + i + "<br>distance: " + (Math.round((distance / 5280.0) * 100) / 100.0) + " miles<br>duration: " + (Math.round((duration / 60.0) * 100) / 100.0)  + " mins<br />True split: "+d.true_split+"<br />Predicted split: "+d.predicted_split+"<br />Number of sensors: "+d.num_sensors);
     polyline.on('popupopen', function(e){ e.target.setStyle({weight:10, color:'black'})});
     polyline.on('popupclose', function(e){ e.target.setStyle({weight:5, color:split_color})});
     fg.addLayer(polyline);
@@ -146,7 +146,6 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
     if (feature.properties) {
     layer.id = count;
     taz = feature.properties.TAZ_ID + '.0';
-    console.log(taz);
     layer.setStyle({weight: 3, opacity: 0.4, color: color_from_taz(taz)});
     }
 

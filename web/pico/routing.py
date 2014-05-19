@@ -8,7 +8,7 @@ import json
 from collections import defaultdict
 from django.contrib.gis.geos import Point, LineString
 
-DATA_PATH = '/home/steve/megacell/datasets'
+DATA_PATH = '/home/ubuntu/datasets'
 FUZZY_DIST = 10
 NUM_WORST_ROUTES = 10
 
@@ -75,12 +75,14 @@ def plan(x1, y1, x2, y2, o, d):
         json_['routes'][route_index]['split_error'] = 'black'
         json_['routes'][route_index]['predicted_split'] = 'OD pair omitted from calculation'
         json_['routes'][route_index]['true_split'] = 'OD pair omitted from calculation'
+    json_['routes'][route_index]['num_sensors'] = 0
     ls = decode_line(route['overview_polyline']['points'])
     ls.set_srid(4326)
     ls_4326 = ls.clone()
     ls.transform(900913)
     for sensor_ind, sensor in enumerate(sensors_transformed):
       if sensor['compare'].distance(ls) < FUZZY_DIST:
+          json_['routes'][route_index]['num_sensors'] += 1
           sensor_map.append({
               'loc':sensor['map'],
               'true':true_sensor_value[sensor_ind],
@@ -107,6 +109,14 @@ def get_worst_routes():
             json_['routes'][idx]['predicted_split'] = predicted_split
             json_['routes'][idx]['true_split'] = true_split
             json_['routes'][idx]['split_error'] = predicted_split - true_split
+            ls = decode_line(route['overview_polyline']['points'])
+            ls.set_srid(4326)
+            ls.transform(900913)
+            json_['routes'][idx]['num_sensors'] = 0
+            for sensor_ind, sensor in enumerate(sensors_transformed):
+              if sensor['compare'].distance(ls) < FUZZY_DIST:
+                json_['routes'][idx]['num_sensors'] += 1
+
     json_['routes'] = [v for k, v in json_['routes'].iteritems()]
     return json_
 
