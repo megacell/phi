@@ -35,7 +35,7 @@ I am using the following tutorial to set up models that support postgis-backing:
 
 To set up the postgres/postgis database for the megacell project, I did the
 following (YMMV):
-```
+```bash
 su -
 su postgres
 createdb template_postgis
@@ -48,7 +48,7 @@ su postgres
 psql template1
 ```
 In postgres console:
-```
+```sql
 CREATE USER megacell;
 GRANT ALL PRIVILEGES ON DATABASE geodjango TO megacell;
 ```
@@ -62,12 +62,15 @@ required, please update the README.
 
 Database Schema
 ===============
-To install and update the database schema, go into django_utils and run
-`django-admin.py syncdb --settings=settings_geo`.
+To install and update the database schema, go into `/django_utils` and run
+```bash
+django-admin.py syncdb --settings=settings_geo
+django-admin.py migrate --settings=settings_geo
+```
 
 Sensors
 =======
-To load the sensors into the database, go to djange_utils and open
+To load the sensors into the database, go to `/djange_utils` and open
 `orm/load.py`. Set the file path to the appropriate path on your machine, save
 and run `django-admin.py shell --settings=settings_geo`
 In the shell, execute
