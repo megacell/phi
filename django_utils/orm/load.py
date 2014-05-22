@@ -3,32 +3,24 @@ import csv
 import logging
 from django.contrib.gis.utils import LayerMapping
 from django.contrib.gis.geos import Point, LineString
-from models import WorldBorder, Sensor
+from models import Sensor, Origin
+import models
 
 DATA_PATH = '/home/steve/megacell/datasets'
 
-world_mapping = {
-    'fips' : 'FIPS',
-    'iso2' : 'ISO2',
-    'iso3' : 'ISO3',
-    'un' : 'UN',
-    'name' : 'NAME',
-    'area' : 'AREA',
-    'pop2005' : 'POP2005',
-    'region' : 'REGION',
-    'subregion' : 'SUBREGION',
-    'lon' : 'LON',
-    'lat' : 'LAT',
-    'mpoly' : 'MULTIPOLYGON',
-}
+origin_shp = os.path.abspath('/home/steve/megacell/code/django_utils/orm/data/ods.shp')
 
-world_shp = os.path.abspath('/home/steve/megacell/code/django_utils/world/data/TM_WORLD_BORDERS-0.3.shp')
-
-def run(verbose=True):
-    lm = LayerMapping(WorldBorder, world_shp, world_mapping,
-                      transform=False, encoding='iso-8859-1')
+def load_origins(verbose=True):
+    lm = LayerMapping(Origin, origin_shp, models.origin_mapping,
+            encoding='iso-8859-1')
 
     lm.save(strict=True, verbose=verbose)
+    for o in Origin.objects.all():
+        o.geom_dist = o.geom.clone()
+        o.geom_dist.srid = 4326
+        o.geom_dist.transform(900913)
+        o.save()
+        logging.info("Saved origin with distance.")
 
 sensor_mapping = {
     'pems_id': 'ID',
@@ -70,7 +62,8 @@ def import_sensors(verbose=True):
         row = {k: v.strip() for k, v in row.iteritems() if v.strip()}
         params = {sensor_mapping_reverse[k]: v for k, v in row.iteritems() if sensor_mapping_reverse.has_key(k)}
         params['location'] = Point(float(row['Longitude']), float(row['Latitude']), srid=4326)
-        params['location'].transform(900913)
+        params['location_dist'] = Point(float(row['Longitude']), float(row['Latitude']), srid=4326)
+        params['location_dist'].transform(900913)
         try:
             sensor = Sensor(**params)
             sensor.save()

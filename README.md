@@ -62,6 +62,11 @@ required, please update the README.
 
 Database Schema
 ===============
+To start, make sure that the environment is set up properly. Replace BASE_DIR
+with the path to the root of this project.
+```
+export PYTHONPATH=$PYTHONPATH:BASE_DIR/django_utils
+```
 To install and update the database schema, go into `/django_utils` and run
 ```bash
 django-admin.py syncdb --settings=settings_geo
@@ -78,3 +83,7 @@ In the shell, execute
 from orm import load
 load.import_sensors()
 ```
+
+Waypoints
+=========
+Let's start making a list of columns (and types) we want for waypoints here:
