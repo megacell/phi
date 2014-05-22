@@ -33,6 +33,26 @@ this is true for brew, etc.
 I am using the following tutorial to set up models that support postgis-backing:
 [Using the Django ORM as a standalone component](https://jystewart.net/2008/02/18/using-the-django-orm-as-a-standalone-component/)
 
+To set up the postgres/postgis database for the megacell project, I did the
+following (YMMV):
+```
+su -
+su postgres
+createdb template_postgis
+createlang plpgsql template_postgis
+psql -d template_postgis -f /usr/share/postgresql/contrib/postgis-2.1/postgis.sql
+psql -d template_postgis -f /usr/share/postgresql/contrib/postgis-2.1/spatial_ref_sys.sql
+exit
+su - postgres -c 'createdb -T template_postgis geodjango'
+su postgres
+psql template1
+```
+In postgres console:
+```
+CREATE USER megacell;
+GRANT ALL PRIVILEGES ON DATABASE geodjango TO megacell;
+```
+
 Geos
 ----
 If this does not come by default with postgis, you will probably need
