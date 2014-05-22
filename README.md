@@ -10,6 +10,14 @@ be installed via pip):
 - [django](https://www.djangoproject.com/) (specifically the geodjango library)
 - [requests](http://docs.python-requests.org/en/latest/)
 - [pico](https://github.com/fergalwalsh/pico)
+- [south](http://south.readthedocs.org/en/latest/installation.html#installation)
+  _Make sure to configure properly_
+
+GeoDjango
+---------
+- [gis](https://docs.djangoproject.com/en/dev/ref/contrib/gis/install/) install
+instructions give platform specific instructions for all the packages you need
+to get this working.
 
 Postgres
 --------
@@ -22,6 +30,9 @@ support in postrges.  This has already been installed on the server. For me,
 on Linux, my package manager had postgis, so it was fairly simple. Hopefully
 this is true for brew, etc.
 
+I am using the following tutorial to set up models that support postgis-backing:
+[Using the Django ORM as a standalone component](https://jystewart.net/2008/02/18/using-the-django-orm-as-a-standalone-component/)
+
 Geos
 ----
 If this does not come by default with postgis, you will probably need
@@ -31,10 +42,16 @@ required, please update the README.
 
 Database Schema
 ===============
-Details on how we are going to lay this out to come.
+To install and update the database schema, go into django_utils and run
+`django-admin.py syncdb --settings=settings_geo`.
 
 Sensors
 =======
-Required to have following columns:
-- Latitude
-- Longitude
+To load the sensors into the database, go to djange_utils and open
+`orm/load.py`. Set the file path to the appropriate path on your machine, save
+and run `django-admin.py shell --settings=settings_geo`
+In the shell, execute
+```python
+from orm import load
+load.import_sensors()
+```
