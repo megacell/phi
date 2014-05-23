@@ -39,7 +39,7 @@ class Sensor(models.Model):
     emp_08 = models.FloatField(null=True, blank=True)
 
     def location_wgs84(self):
-        return self.location.transform(4326, clone=True)
+        return self.location_dist
 
     # Returns the string representation of the model.
     def __unicode__(self):
@@ -64,6 +64,10 @@ class Origin(models.Model):
     geom = models.PolygonField(srid=4326)
     geom_dist = models.PolygonField(srid=900913, null=True, blank=True)
     objects = models.GeoManager()
+
+    # Returns the string representation of the model.
+    def __unicode__(self):
+        return "TAZ: %s, Centroid: %s" % (self.taz_id, repr(self.geom.centroid.coords))
 
 # Auto-generated `LayerMapping` dictionary for Origin model
 origin_mapping = {
