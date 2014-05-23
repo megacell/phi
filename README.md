@@ -77,6 +77,11 @@ django-admin.py migrate --settings=settings_geo
 
 Sensors
 =======
+To start, make sure that the environment is set up properly. Replace BASE_DIR
+with the path to the root of this project.
+```
+export PYTHONPATH=$PYTHONPATH:BASE_DIR/django_utils
+```
 To load the sensors into the database, go to `/djange_utils` and open
 `orm/load.py`. Set the file path to the appropriate path on your machine, save
 and run `django-admin.py shell --settings=settings_geo`
@@ -84,6 +89,22 @@ In the shell, execute
 ```python
 from orm import load
 load.import_sensors()
+```
+
+Origins
+=======
+To start, make sure that the environment is set up properly. Replace BASE_DIR
+with the path to the root of this project.
+```
+export PYTHONPATH=$PYTHONPATH:BASE_DIR/django_utils
+```
+To load the origins into the database, go to `/djange_utils` and open
+`orm/load.py`. Set the file path to the appropriate path on your machine, save
+and run `django-admin.py shell --settings=settings_geo`
+In the shell, execute
+```python
+from orm import load
+load.load_origins()
 ```
 
 Waypoints
