@@ -10,7 +10,7 @@ class Migration(SchemaMigration):
     def forwards(self, orm):
         # Adding field 'Origin.geom_dist'
         db.add_column(u'orm_origin', 'geom_dist',
-                      self.gf('django.contrib.gis.db.models.fields.PolygonField')(srid=990913, null=True, blank=True),
+                      self.gf('django.contrib.gis.db.models.fields.PolygonField')(srid=900913, null=True, blank=True),
                       keep_default=False)
 
 

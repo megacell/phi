@@ -12,6 +12,7 @@ be installed via pip):
 - [pico](https://github.com/fergalwalsh/pico)
 - [south](http://south.readthedocs.org/en/latest/installation.html#installation)
   _Make sure to configure properly_
+- [psycopg2](http://initd.org/psycopg/)
 
 GeoDjango
 ---------
@@ -50,6 +51,7 @@ psql template1
 In postgres console:
 ```sql
 CREATE USER megacell;
+ALTER DATABASE geodjango OWNER TO megacell;
 GRANT ALL PRIVILEGES ON DATABASE geodjango TO megacell;
 ```
 
