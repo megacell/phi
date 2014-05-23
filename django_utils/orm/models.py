@@ -88,3 +88,18 @@ origin_mapping = {
     'emp08' : 'EMP08',
     'geom' : 'POLYGON',
 }
+
+class Route(models.Model):
+    geom = models.LineStringField(srid=4326)
+    geom_dist = models.LineStringField(srid=900913, null=True, blank=True)
+    summary = models.CharField(max_length=50)
+    origin_taz = models.FloatField()
+    destination_taz = models.FloatField()
+    travel_time = models.FloatField(null=True, blank=True) #can always recover from JSON
+    json_contents = models.TextField()
+
+    objects = models.GeoManager()
+
+    # Returns the string representation of the model.
+    def __unicode__(self):
+        return "OD: %s to %s, Travel Time: %s Centroid: %s" % (self.origin_taz, self.destination_taz, self.travel_time or 0, repr(self.geom.centroid.coords))
