@@ -60,6 +60,29 @@ ALTER DATABASE geodjango OWNER TO megacell;
 GRANT ALL PRIVILEGES ON DATABASE geodjango TO megacell;
 ```
 
+Setup for OSX (based on [Instructions for OSX](http://lukeberndt.com/2011/postgres-postgis-on-osx-lion/), confirmed for OSX 10.8)
+```bash
+initdb /usr/local/var/postgres_mc/
+```
+Then start the database:
+```bash
+postgres -D /usr/local/var/postgres_mc/
+```
+In a separate shell:
+```bash
+createdb template_postgis
+psql -d template_postgis -f /usr/local/share/postgis/postgis.sql
+psql -d template_postgis -f /usr/local/share/postgis/spatial_ref_sys.sql
+createdb -T template_postgis geodjango
+psql template1
+```
+In postgres console:
+```sql
+CREATE USER megacell;
+ALTER DATABASE geodjango OWNER TO megacell;
+GRANT ALL PRIVILEGES ON DATABASE geodjango TO megacell;
+```
+
 Geos
 ----
 If this does not come by default with postgis, you will probably need

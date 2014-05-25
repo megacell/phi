@@ -6,9 +6,11 @@ from django.contrib.gis.geos import Point, LineString
 from models import Sensor, Origin
 import models
 
-DATA_PATH = '/home/steve/megacell/datasets'
+# FIXME poor practice
+THIS_DIR = os.path.dirname(os.path.realpath(__file__))
+DATA_PATH = '%s/../../../datasets' % THIS_DIR
 
-origin_shp = os.path.abspath('/home/steve/megacell/code/django_utils/orm/data/ods.shp')
+origin_shp = os.path.abspath('%s/Phi/ods.shp' % DATA_PATH)
 
 def load_origins(verbose=True):
     lm = LayerMapping(Origin, origin_shp, models.origin_mapping,
