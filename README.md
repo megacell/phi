@@ -14,6 +14,11 @@ be installed via pip):
   _Make sure to configure properly_
 - [psycopg2](http://initd.org/psycopg/)
 
+Installation via pip (confirmed for OSX 10.8):
+
+    sudo easy_install-2.7 pip-2.7
+    pip-2.7 install -r requirements.txt
+
 GeoDjango
 ---------
 - [gis](https://docs.djangoproject.com/en/dev/ref/contrib/gis/install/) install

@@ -1,0 +1,5 @@
+django
+requests
+pico
+south
+psycopg2
