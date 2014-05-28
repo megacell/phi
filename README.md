@@ -14,6 +14,11 @@ be installed via pip):
   _Make sure to configure properly_
 - [psycopg2](http://initd.org/psycopg/)
 
+Installation via pip (confirmed for OSX 10.8):
+
+    sudo easy_install-2.7 pip-2.7
+    pip-2.7 install -r requirements.txt
+
 GeoDjango
 ---------
 - [gis](https://docs.djangoproject.com/en/dev/ref/contrib/gis/install/) install
@@ -46,6 +51,29 @@ psql -d template_postgis -f /usr/share/postgresql/contrib/postgis-2.1/spatial_re
 exit
 su - postgres -c 'createdb -T template_postgis geodjango'
 su postgres
+psql template1
+```
+In postgres console:
+```sql
+CREATE USER megacell;
+ALTER DATABASE geodjango OWNER TO megacell;
+GRANT ALL PRIVILEGES ON DATABASE geodjango TO megacell;
+```
+
+Setup for OSX (based on [Instructions for OSX](http://lukeberndt.com/2011/postgres-postgis-on-osx-lion/), confirmed for OSX 10.8)
+```bash
+initdb /usr/local/var/postgres_mc/
+```
+Then start the database:
+```bash
+postgres -D /usr/local/var/postgres_mc/
+```
+In a separate shell:
+```bash
+createdb template_postgis
+psql -d template_postgis -f /usr/local/share/postgis/postgis.sql
+psql -d template_postgis -f /usr/local/share/postgis/spatial_ref_sys.sql
+createdb -T template_postgis geodjango
 psql template1
 ```
 In postgres console:

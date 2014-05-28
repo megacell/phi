@@ -14,10 +14,12 @@ import models
 logging.basicConfig(level=logging.DEBUG)
 
 N_TAZ = 321
-DATA_PATH = '/home/steve/megacell/datasets'
+# FIXME poor practice
+THIS_DIR = os.path.dirname(os.path.realpath(__file__))
+DATA_PATH = '%s/../../../datasets' % THIS_DIR
 data_prefix = "%s/Phi" % DATA_PATH #TODO(syadlowsky): make these consistent
 
-origin_shp = os.path.abspath('/home/steve/megacell/code/django_utils/orm/data/ods.shp')
+origin_shp = os.path.abspath('%s/Phi/ods.shp' % DATA_PATH)
 
 def load_origins(verbose=True):
     lm = LayerMapping(Origin, origin_shp, models.origin_mapping,
