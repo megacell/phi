@@ -89,16 +89,35 @@ origin_mapping = {
     'geom' : 'POLYGON',
 }
 
+class Waypoint(models.Model):
+    """
+    geom is voronoi parition, location is center (location of tower)
+    """
+    category = models.CharField(null=True, blank=True, max_length=100)
+    geom = models.PolygonField(srid=4326, null=True, blank=True)
+    geom_dist = models.PolygonField(srid=900913, null=True, blank=True)
+    location = models.PointField(srid=4326)
+    location_dist = models.PointField(srid=900913, null=True, blank=True)
+    objects = models.GeoManager()
+
+    # Returns the string representation of the model.
+    def __unicode__(self):
+        return "Category: %s, Center: %s" % (self.category, repr(self.location.coords))
+
 class Route(models.Model):
     geom = models.LineStringField(srid=4326)
     geom_dist = models.LineStringField(srid=900913, null=True, blank=True)
-    summary = models.CharField(max_length=50)
+    summary = models.CharField(max_length=100)
     origin_taz = models.FloatField()
     destination_taz = models.FloatField()
+    od_route_index = models.IntegerField()
     travel_time = models.FloatField(null=True, blank=True) #can always recover from JSON
     json_contents = models.TextField()
 
     objects = models.GeoManager()
+
+    class Meta:
+        unique_together = (("origin_taz", "destination_taz", "od_route_index"),)
 
     # Returns the string representation of the model.
     def __unicode__(self):

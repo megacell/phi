@@ -33,8 +33,6 @@ def getRoutes(o, d, gen_sensors=False):
     gpolyline = route['overview_polyline']['points']
     linestring = google_lines.decode_line(gpolyline)
     linestring.set_srid(4326)
-    if (len(linestring) >= 2) and gen_sensors:
-        first_leg_sensors.add(Point(linestring[1]))
     linestring.transform(900913)
     routes.append(linestring)
   return routes
@@ -74,14 +72,6 @@ for file in files:
     origins[o][d] = []
   
 num_routes = 0
-
-gen_tt = ConsoleProgress(N_TAZ*N_TAZ, message="Generating sensors on first leg of each route.")
-for index_o, o in enumerate(origins):
-  for index_d, d in enumerate(origins[o]):
-    getRoutes(o, d, gen_sensors=True)
-    gen_tt.increment_progress()
-sensors.extend(list(first_leg_sensors))
-gen_tt.finish()
 
 gen_tt = ConsoleProgress(N_TAZ_TARGET, message="Computing Phi")
 out = open(data_prefix+'/routes_condensed'+selected_origin_id+'.csv', 'w')
