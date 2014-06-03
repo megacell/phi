@@ -45,6 +45,10 @@ class Sensor(models.Model):
     def __unicode__(self):
         return "%s %s" % (self.name, repr(self.location_wgs84().coords))
 
+class MatrixTaz(models.Model):
+    matrix_id = models.IntegerField()
+    taz_id = models.FloatField()
+
 class Origin(models.Model):
     shape_leng = models.FloatField()
     shape_area = models.FloatField()

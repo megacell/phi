@@ -6,7 +6,7 @@ import json
 from django.contrib.gis.utils import LayerMapping
 from django.contrib.gis.geos import Point, LineString
 from django.db import transaction
-from models import Sensor, Origin, Route, Waypoint
+from models import Sensor, Origin, Route, Waypoint, MatrixTaz
 from lib.console_progress import ConsoleProgress
 from lib import google_lines
 import models
@@ -82,8 +82,19 @@ def import_sensors(verbose=True):
             print params
             raise
 
+def import_lookup(verbose=True):
+    waypoints = pickle.load(open("{0}/Phi/lookup.pickle".format(DATA_PATH)))
+    ac = transaction.get_autocommit()
+    transaction.set_autocommit(False)
+    for matrix_id, taz_id in waypoints.iteritems():
+        mt = MatrixTaz(matrix_id=matrix_id, taz_id=taz_id)
+        mt.save()
+    transaction.commit()
+    transaction.set_autocommit(ac)
+
+
 def import_waypoints(verbose=True):
-    waypoints = pickle.load(open("{0}/Phi/waypoints.pkl".format(DATA_PATH)))
+    waypoints = pickle.load(open("{0}/Phi/waypoints_full.pkl".format(DATA_PATH)))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)
     for category, locations in waypoints.iteritems():
