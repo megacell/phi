@@ -47,7 +47,7 @@ class Sensor(models.Model):
 
 class MatrixTaz(models.Model):
     matrix_id = models.IntegerField()
-    taz_id = models.FloatField()
+    taz_id = models.FloatField(db_index=True)
 
 class Origin(models.Model):
     shape_leng = models.FloatField()

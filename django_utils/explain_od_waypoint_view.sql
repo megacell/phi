@@ -1,5 +1,4 @@
-DROP TABLE waypoint_od_bins;
-CREATE MATERIALIZED VIEW waypoint_od_bins AS
+EXPLAIN
 SELECT r.id AS orm_route_id, (
   SELECT matrix_id FROM orm_origin w INNER JOIN orm_matrixtaz ON orm_matrixtaz.taz_id = w.taz_id WHERE ST_Contains(w.geom, ST_StartPoint(r.geom))
 ) AS origin, array(SELECT w.id from orm_waypoint w WHERE ST_Intersects(w.geom, r.geom)) AS waypoints, (

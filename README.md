@@ -25,8 +25,8 @@ GeoDjango
 instructions give platform specific instructions for all the packages you need
 to get this working.
 
-Postgres
---------
+Postgres **9.3**
+----------------
 The database that we are slowly migrating towards is postgres. The installation
 instructions for this vary from system to system. If you find a good one for
 your system, link to it here.
@@ -35,6 +35,9 @@ We will also be using [*postgis*](http://postgis.net/) extensions for geometry
 support in postrges.  This has already been installed on the server. For me,
 on Linux, my package manager had postgis, so it was fairly simple. Hopefully
 this is true for brew, etc.
+
+It is important that you use 9.3, because for our sanity we started using
+materialized views, a feature only available on this side of the 9.3 line.
 
 I am using the following tutorial to set up models that support postgis-backing:
 [Using the Django ORM as a standalone component](https://jystewart.net/2008/02/18/using-the-django-orm-as-a-standalone-component/)
@@ -133,8 +136,32 @@ In the shell, execute
 ```python
 from orm import load
 load.load_origins()
+load.import_lookup()
 ```
 
 Waypoints
 =========
-Let's start making a list of columns (and types) we want for waypoints here:
+To start, make sure that the environment is set up properly. Replace BASE_DIR
+with the path to the root of this project.
+```
+export PYTHONPATH=$PYTHONPATH:BASE_DIR/django_utils
+```
+To load the origins into the database, go to `/djange_utils` and open
+`orm/load.py`. Set the file path to the appropriate path on your machine, save
+and run `django-admin.py shell --settings=settings_geo`
+In the shell, execute
+```python
+from orm import load
+load.import_waypoints()
+```
+Exit the shell, and from the bash prompt in `django_utils` run (these may take
+a while):
+```bash
+psql -U megacell -d geodjango -f set_waypoint_voronoi.sql
+psql -U megacell -d geodjango -f create_od_waypoint_view.sql
+```
+
+Updates
+=======
+If you ran most of these a while ago, you may have to go back and run all of
+Waypoints and the `load.import_lookup()` from Origins.
