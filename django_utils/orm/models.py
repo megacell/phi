@@ -49,6 +49,13 @@ class MatrixTaz(models.Model):
     matrix_id = models.IntegerField()
     taz_id = models.FloatField(db_index=True)
 
+class ExperimentRoute(models.Model):
+    route = models.ForeignKey('Route')
+    vector_index = models.IntegerField()
+    value = models.FloatField(null=True, blank=True)
+    description = models.TextField()
+    true_split = models.BooleanField(default=False)
+
 class Origin(models.Model):
     shape_leng = models.FloatField()
     shape_area = models.FloatField()
@@ -122,6 +129,7 @@ class Route(models.Model):
 
     class Meta:
         unique_together = (("origin_taz", "destination_taz", "od_route_index"),)
+        index_together = (("origin_taz", "destination_taz"),)
 
     # Returns the string representation of the model.
     def __unicode__(self):

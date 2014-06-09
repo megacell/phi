@@ -6,9 +6,23 @@ import scipy.io as sio
 import numpy as np
 import json
 from collections import defaultdict
+from django.db import connection
 from django.contrib.gis.geos import Point, LineString
+import os, sys
 
-DATA_PATH = '/home/ubuntu/datasets'
+import logging
+logging.basicConfig(filename='/home/steve/megacell/LA.log',level=logging.DEBUG)
+
+#### HACK
+django_path = (os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../django_utils'))
+sys.path.insert(0, django_path)
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings_geo")
+
+from orm import models
+#### END HACK
+
+DATA_PATH = '/home/steve/megacell/datasets'
 FUZZY_DIST = 10
 NUM_WORST_ROUTES = 10
 
@@ -55,16 +69,38 @@ def sensors(point_list):
           })
     return sensor_map
 
-def plan(x1, y1, x2, y2, o, d):
-  o = rlookup[float(o)]
-  d = rlookup[float(d)]
+def get_json(x1, y1, x2, y2, o, d):
+  o_taz = float(o)
+  d_taz = float(d)
+  o = rlookup[o_taz]
+  d = rlookup[d_taz]
   #url = 'http://maps.googleapis.com/maps/api/directions/json?origin=%s,%s&destination=%s,%s&sensor=false&alternatives=true'
   #r = requests.get(url % (x1, y1, x2, y2))
   #json_ = r.json()
-  json_ = json.load(open('{0}/Phi/data/%s_%s.json'.format(DATA_PATH) % (o, d)))
+  cursor = connection.cursor()
+  sql_template = """
+  SELECT orm_route.id, orm_route.json_contents
+  FROM orm_route
+  WHERE orm_route.origin_taz = %s
+  AND orm_route.destination_taz = %s
+  """
+  logging.debug(sql_template % (o_taz, d_taz))
+  cursor.execute(sql_template, (o_taz, d_taz))
+  routes = [dict(json.loads(r[1]).items() + [('route_id',r[0])]) for r in cursor.fetchall()]
+  return {'routes': routes}
+
+def plan(x1, y1, x2, y2, o, d):
+  o_taz = float(o)
+  d_taz = float(d)
+  o = rlookup[o_taz]
+  d = rlookup[d_taz]
+  json_ = get_json(x1, y1, x2, y2, o_taz, d_taz)
   routes = json_['routes']
   sensor_map = []
+  waypoint_map = []
+  colors = [['#099', '#066'], ['#FF1800', '#FF5240'], ['#FFAA00', '#FFBF40'], ['#9FEE00', '#B9F73E']]
   for route_index, route in enumerate(routes):
+    color = colors[route_index]
     if (o, d) in condensed_map:
         predicted_split = route_split['x'][condensed_map[(o, d)][route_index]]
         true_split = route_split['x_true'][condensed_map[(o, d)][route_index]]
@@ -76,20 +112,38 @@ def plan(x1, y1, x2, y2, o, d):
         json_['routes'][route_index]['predicted_split'] = 'OD pair omitted from calculation'
         json_['routes'][route_index]['true_split'] = 'OD pair omitted from calculation'
     json_['routes'][route_index]['num_sensors'] = 0
-    ls = decode_line(route['overview_polyline']['points'])
-    ls.set_srid(4326)
-    ls_4326 = ls.clone()
-    ls.transform(900913)
+    cursor = connection.cursor()
+    sql_template = """
+    SELECT ST_DWithin(s.location_dist, r.geom_dist, 20), ST_X(s.location), ST_Y(s.location)
+    FROM orm_sensor s, orm_route r
+    WHERE r.id = %s
+    """
+    cursor.execute(sql_template, (route['route_id'],))
+    sensors_transformed = cursor.fetchall()
     for sensor_ind, sensor in enumerate(sensors_transformed):
-      if sensor['compare'].distance(ls) < FUZZY_DIST:
-          json_['routes'][route_index]['num_sensors'] += 1
-          sensor_map.append({
-              'loc':sensor['map'],
-              'true':true_sensor_value[sensor_ind],
-              'predicted':lsqr[sensor_ind]
-          })
+        if sensor[0]:
+            json_['routes'][route_index]['num_sensors'] += 1
+            sensor_map.append({
+                'loc':(sensor[1], sensor[2]),
+                'true':true_sensor_value[sensor_ind],
+                'predicted':lsqr[sensor_ind],
+            })
+    sql_template = """
+    SELECT w.*
+    FROM orm_waypoint w, orm_route r
+    WHERE r.id = %s
+    AND ST_Intersects(w.geom, r.geom)
+    """
+    waypoints = models.Waypoint.objects.raw(sql_template, (route['route_id'],))
+    for waypoint in waypoints:
+        waypoint_map.append({
+            'geom':waypoint.geom,
+            'color':color,
+        })
 
-  return [json_, sensor_map]
+  logging.debug(repr(sensor_map))
+  logging.debug(repr(waypoint_map))
+  return [json_, sensor_map, waypoint_map]
 
 def get_worst_routes():
     diff = route_split['x'] - route_split['x_true']
@@ -216,3 +270,6 @@ def undefined():
     points.append(p)
 
   pickle.dump(points, open("{0}/Phi/sensors.pickle".format(DATA_PATH), 'w'))
+
+if __name__=="__main__":
+    plan(0, 0, 0, 0, 21681000, 22082000)

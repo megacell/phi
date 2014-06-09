@@ -5,8 +5,9 @@ import pickle
 import json
 from django.contrib.gis.utils import LayerMapping
 from django.contrib.gis.geos import Point, LineString
+from collections import defaultdict
 from django.db import transaction
-from models import Sensor, Origin, Route, Waypoint, MatrixTaz
+from models import Sensor, Origin, Route, Waypoint, MatrixTaz, ExperimentRoute
 from lib.console_progress import ConsoleProgress
 from lib import google_lines
 import models
@@ -105,8 +106,29 @@ def import_waypoints(verbose=True):
     transaction.commit()
     transaction.set_autocommit(ac)
 
-def import_routes():
+def find_route_by_origin_destination_route_index(o, d, idx):
+    r = Route.objects.raw("SELECT r.* FROM orm_route r INNER JOIN orm_matrixtaz t ON r.origin_taz = t.taz_id INNER JOIN orm_matrixtaz s ON r.destination_taz = s.taz_id WHERE t.matrix_id = %s AND s.matrix_id = %s AND r.od_route_index = %s LIMIT 1;", (o, d, idx))
+    return r[0]
 
+def import_experiment(filename, description):
+    back_map = pickle.load(open(filename))
+    condensed_map = defaultdict(list)
+    for k, v in back_map.iteritems():
+        condensed_map[v].append(k)
+    ac = transaction.get_autocommit()
+    transaction.set_autocommit(False)
+    for k, v in condensed_map.iteritems():
+        o, d = k
+        for idx, rt in enumerate(v):
+            route = find_route_by_origin_destination_route_index(o, d, idx)
+            er = ExperimentRoute(route=route, vector_index=rt, description=description, true_split=False)
+            er.save()
+            er = ExperimentRoute(route=route, vector_index=rt, description=description, true_split=True)
+            er.save()
+    transaction.commit()
+    transaction.set_autocommit(ac)
+
+def import_routes():
     taz_lookup = pickle.load(open(data_prefix+'/lookup.pickle'))
 
     def compute_route_time(route):
