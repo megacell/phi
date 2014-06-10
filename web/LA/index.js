@@ -110,6 +110,8 @@ function handle_routes(rts, fg) {
   });
 }
 
+var taz_layer_lookup = {};
+
 var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer) {
   if (feature.properties) {
     layer.id = count;
@@ -264,6 +266,8 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
     worst_routes.bringToFront();
   });
 
+  taz_layer_lookup[layer.feature.properties.TAZ_ID] = layer;
+
   count += 1;
   if(count == 321){
     d3.select('#loading').transition()
@@ -288,6 +292,22 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
   }
 }});
 ods.addTo(map);
+
+var previous_search = null;
+var previous_search_color = null;
+
+function search() {
+  var searchString = parseInt($('#search').val().toLowerCase());
+  var layer = taz_layer_lookup[taz_to_matrix.lookup[searchString]];
+  if (layer) {
+    if (previous_search) {
+      previous_search.setStyle({color: previous_search_color});
+    }
+    previous_search = layer;
+    previous_search_color = layer.color;
+    layer.setStyle({color: '#ffff00'});
+  }
+}
 
 routing.get_worst_routes(function(data) {
   handle_routes(data, worst_routes);
@@ -321,6 +341,7 @@ var overlayMaps = {
 
 var controls = L.control.layers(baseLayers, overlayMaps, {collapsed: false});
 controls.addTo(map);
+$('#search').keyup(search);
 
 function decode(encoded){
 
