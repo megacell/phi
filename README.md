@@ -93,6 +93,14 @@ If this does not come by default with postgis, you will probably need
 where this dependency comes in to the system. If you discover where this is
 required, please update the README.
 
+Data files
+==========
+To push changes: `rsync -e ssh datasets/Phi --exclude Phi/data -rzv <HOST_URL>:datasets`
+
+To pull changes: must have an empty (or previously pulled) directory called datasets. `rsync -e ssh --exclude Phi/data -rzv <HOST_URL>:datasets .`
+
+The first time you pull (if you want the entire dataset), you can remove the exclude. That has all of the routes as JSON files. If you don't want them, leave the exclude in there. Either way, when you push or pull after the first time, you want to exclude that directory.
+
 Database Schema
 ===============
 To start, make sure that the environment is set up properly. Replace BASE_DIR
