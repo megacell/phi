@@ -98,7 +98,7 @@ Database Schema
 To start, make sure that the environment is set up properly. Replace BASE_DIR
 with the path to the root of this project.
 ```
-export PYTHONPATH=$PYTHONPATH:BASE_DIR/django_utils
+export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
 ```
 To install and update the database schema, go into `/django_utils` and run
 ```bash
@@ -111,7 +111,7 @@ Sensors
 To start, make sure that the environment is set up properly. Replace BASE_DIR
 with the path to the root of this project.
 ```
-export PYTHONPATH=$PYTHONPATH:BASE_DIR/django_utils
+export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
 ```
 To load the sensors into the database, go to `/djange_utils` and open
 `orm/load.py`. Set the file path to the appropriate path on your machine, save
@@ -127,7 +127,7 @@ Origins
 To start, make sure that the environment is set up properly. Replace BASE_DIR
 with the path to the root of this project.
 ```
-export PYTHONPATH=$PYTHONPATH:BASE_DIR/django_utils
+export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
 ```
 To load the origins into the database, go to `/djange_utils` and open
 `orm/load.py`. Set the file path to the appropriate path on your machine, save
@@ -144,7 +144,7 @@ Waypoints
 To start, make sure that the environment is set up properly. Replace BASE_DIR
 with the path to the root of this project.
 ```
-export PYTHONPATH=$PYTHONPATH:BASE_DIR/django_utils
+export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
 ```
 To load the origins into the database, go to `/djange_utils` and open
 `orm/load.py`. Set the file path to the appropriate path on your machine, save
