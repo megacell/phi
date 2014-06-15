@@ -93,8 +93,8 @@ function handle_waypoint(waypoint_data){
 
 function handle_towers(tower_locs, towers_group) {
   tower_locs.forEach(function(d, i){
-    var tower_point = new L.Circle(d, 5, {
-      color: 'red',
+    var tower_point = new L.Circle(d[0], 5, {
+      color: d[1],
       opacity: 1.0
     });
 

@@ -56,9 +56,16 @@ def build_point_dictionary(point):
   }
 sensors_transformed = [build_point_dictionary(p) for p in points]
 
+category_to_color = {
+    'uniform_rand_bbox' : 'purple',
+    'gaussian_polyline' : 'green',
+    'uniform_random' : 'blue',
+    'gaussian_points' : 'red',
+}
+
 def tower_locations():
     towers = models.Waypoint.objects.all()
-    tower_locations = map(lambda tower: (tower.location.y, tower.location.x), towers)
+    tower_locations = map(lambda tower: ((tower.location.y, tower.location.x), category_to_color[tower.category]), towers)
     return tower_locations
 
 def sensors(point_list):
