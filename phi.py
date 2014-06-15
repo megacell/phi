@@ -74,8 +74,6 @@ for file in files:
 num_routes = 0
 
 gen_tt = ConsoleProgress(N_TAZ_TARGET, message="Computing Phi")
-out = open(data_prefix+'/routes_condensed'+selected_origin_id+'.csv', 'w')
-out.write('id#corigin#cdestination#origin#destination#route#origin_taz#destination_taz#route#sensors\n')
 count = 0
 for index_o, o in enumerate(origins):
   for index_d, d in enumerate(origins[o]):
@@ -83,7 +81,6 @@ for index_o, o in enumerate(origins):
     num_routes += len(routes)
     for i, route in enumerate(routes):
       rs = route_sensors(route)
-      out.write('%s#%s#%s#%s#%s#%s#%s#%s#%s#%s\n' % (count, index_o, index_d, o, d, i, lookup[o], lookup[d], route, str(rs)))
       origins[o][d].append(rs)
   gen_tt.update_progress(index_o)
 out.close()
