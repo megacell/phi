@@ -6,7 +6,7 @@ if path not in sys.path:
     sys.path.insert(0, path)
 print sys.path
 
-RELOAD = False
+RELOAD = True
 
 # Set the WSGI application handler
 application = pico.server.wsgi_app

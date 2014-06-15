@@ -56,6 +56,11 @@ def build_point_dictionary(point):
   }
 sensors_transformed = [build_point_dictionary(p) for p in points]
 
+def tower_locations():
+    towers = models.Waypoint.objects.all()
+    tower_locations = map(lambda tower: (tower.location.y, tower.location.x), towers)
+    return tower_locations
+
 def sensors(point_list):
     route = LineString([[point['lng'], point['lat']] for point in point_list], srid=4326)
     route.transform(900913)
