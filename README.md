@@ -147,6 +147,15 @@ load.load_origins()
 load.import_lookup()
 ```
 
+Routes
+======
+Make sure you have the entire Phi dataset, and all of your migrations are run.
+Then, run `django-admin.py shell --settings=settings_geo`
+```python
+from orm import load
+load.import_routes()
+```
+
 Waypoints
 =========
 To start, make sure that the environment is set up properly. Replace BASE_DIR
@@ -185,7 +194,7 @@ This should contain 2 variables: `x_true` and `xLBFGS`, which are loaded into
 the database, and associated with the appropriate route. In the shell, execute
 ```python
 from orm import load
-load.import_experiment("../data/od_back_map.pickle", "first small experiment"
+load.import_experiment("../data/od_back_map.pickle", "first small experiment")
 load.import_experiment_data("first small experiment")
 ```
 
