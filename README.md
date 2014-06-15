@@ -175,6 +175,11 @@ Experiment
 To load an experiment into the database, go to `/djange_utils` and open
 `orm/load.py`. Set the file path to the appropriate path on your machine, save
 and run `django-admin.py shell --settings=settings_geo`
+Be sure that you have run all of your migrations, otherwise the following will
+take a very long time:
+```bash
+django-admin.py migrate --settings=settings_geo orm
+```
 Make sure you have the `outputSmallData.mat` file in the datasets/Phi directory.
 This should contain 2 variables: `x_true` and `xLBFGS`, which are loaded into
 the database, and associated with the appropriate route. In the shell, execute
