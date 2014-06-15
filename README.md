@@ -165,6 +165,7 @@ load.import_waypoints()
 Exit the shell, and from the bash prompt in `django_utils` run (these may take
 a while):
 ```bash
+psql -U megacell -d geodjango -f voronoi_python.sql
 psql -U megacell -d geodjango -f set_waypoint_voronoi.sql
 psql -U megacell -d geodjango -f create_od_waypoint_view.sql
 ```
