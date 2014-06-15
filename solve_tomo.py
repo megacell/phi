@@ -191,4 +191,8 @@ else:
     A = loaded_data['A']
     sensors = loaded_data['b']
 
+# TODO remove first row of A before saving
+# TODO N = np.sum(U,axis=0)
+# TODO save N as well
+
 sio.savemat(data_prefix+'/route_assignment_matrices.mat', {'A':A, 'U':x_matrix.U, 'x':x_matrix.x, 'b':sensors})
