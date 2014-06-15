@@ -95,17 +95,27 @@ required, please update the README.
 
 Data files
 ==========
-To push changes: `rsync -e ssh datasets/Phi --exclude Phi/data -rzv <HOST_URL>:datasets`
+To push changes: 
+```bash
+rsync -e ssh datasets/Phi --exclude Phi/data -rzv <HOST_URL>:datasets
+```
 
-To pull changes: must have an empty (or previously pulled) directory called datasets. `rsync -e ssh --exclude Phi/data -rzv <HOST_URL>:datasets .`
+To pull changes: must have an empty (or previously pulled) directory called 
+datasets.
+```bash
+rsync -e ssh --exclude Phi/data -rzv <HOST_URL>:datasets .
+```
 
-The first time you pull (if you want the entire dataset), you can remove the exclude. That has all of the routes as JSON files. If you don't want them, leave the exclude in there. Either way, when you push or pull after the first time, you want to exclude that directory.
+The first time you pull (if you want the entire dataset), you can remove the 
+exclude. That has all of the routes as JSON files. If you don't want them, 
+leave the exclude in there. Either way, when you push or pull after the first 
+time, you want to exclude that directory.
 
 Database Schema
 ===============
 To start, make sure that the environment is set up properly. Replace BASE_DIR
 with the path to the root of this project.
-```
+```bash
 export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
 ```
 To install and update the database schema, go into `/django_utils` and run
@@ -114,10 +124,11 @@ django-admin.py syncdb --settings=settings_geo
 django-admin.py migrate --settings=settings_geo
 ```
 
-Sensors
+Importing data (sensors, origins, routes, and waypoints)
 =======
 To start, make sure that the environment is set up properly. Replace BASE_DIR
-with the path to the root of this project.
+with the path to the root of this project. Make sure you have the entire Phi 
+dataset, and all of your migrations are run.
 ```
 export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
 ```
@@ -128,58 +139,22 @@ In the shell, execute
 ```python
 from orm import load
 load.import_sensors()
-```
-
-Origins
-=======
-To start, make sure that the environment is set up properly. Replace BASE_DIR
-with the path to the root of this project.
-```
-export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
-```
-To load the origins into the database, go to `/djange_utils` and open
-`orm/load.py`. Set the file path to the appropriate path on your machine, save
-and run `django-admin.py shell --settings=settings_geo`
-In the shell, execute
-```python
-from orm import load
 load.load_origins()
 load.import_lookup()
-```
-
-Routes
-======
-Make sure you have the entire Phi dataset, and all of your migrations are run.
-Then, run `django-admin.py shell --settings=settings_geo`
-```python
-from orm import load
 load.import_routes()
-```
-
-Waypoints
-=========
-To start, make sure that the environment is set up properly. Replace BASE_DIR
-with the path to the root of this project.
-```
-export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
-```
-To load the origins into the database, go to `/djange_utils` and open
-`orm/load.py`. Set the file path to the appropriate path on your machine, save
-and run `django-admin.py shell --settings=settings_geo`
-In the shell, execute
-```python
-from orm import load
 load.import_waypoints()
 ```
+Some of the commands will take a while to run, in particular importing routes.
+
 Exit the shell, and from the bash prompt in `django_utils` run (these may take
-a while):
+a while too):
 ```bash
 psql -U <SUPERUSER> -d geodjango -f voronoi_python.sql
 psql -U megacell -d geodjango -f set_waypoint_voronoi.sql
 psql -U megacell -d geodjango -f create_od_waypoint_view.sql
 ```
 
-Experiment
+Loading the experiment(s)
 ==========
 To load an experiment into the database, go to `/djange_utils` and open
 `orm/load.py`. Set the file path to the appropriate path on your machine, save
