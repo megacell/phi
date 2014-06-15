@@ -56,6 +56,8 @@ routes.addTo(map);
 
 var worst_routes = L.featureGroup();
 
+var towers = L.featureGroup();
+
 var sensors = L.featureGroup();
 sensors.addTo(map);
 
@@ -87,6 +89,17 @@ function handle_waypoint(waypoint_data){
     fillOpacity: 0.6
   });
   waypoints.addLayer(waypoint);
+}
+
+function handle_towers(tower_locs, towers_group) {
+  tower_locs.forEach(function(d, i){
+    var tower_point = new L.Circle(d, 5, {
+      color: 'red',
+      opacity: 1.0
+    });
+
+    towers_group.addLayer(tower_point);
+  });
 }
 
 function handle_routes(rts, fg) {
@@ -313,6 +326,10 @@ routing.get_worst_routes(function(data) {
   handle_routes(data, worst_routes);
 });
 
+routing.tower_locations(function(data) {
+  handle_towers(data, towers);
+});
+
 var defaultLayer = L.tileLayer.provider('OpenStreetMap.Mapnik').addTo(map);
 
 var baseLayers = {
@@ -335,6 +352,7 @@ var overlayMaps = {
   'ODs': ods,
   'Sensors': sensors,
   'Worst Routes': worst_routes,
+  'Cell Towers': towers,
   'Yellows': intersects,
   'Waypoints': waypoints,
 };

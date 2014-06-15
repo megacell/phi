@@ -7,6 +7,9 @@ from django.contrib.gis.utils import LayerMapping
 from django.contrib.gis.geos import Point, LineString
 from collections import defaultdict
 from django.db import transaction
+from django.db import connection
+import scipy.io as sio
+import numpy as np
 from models import Sensor, Origin, Route, Waypoint, MatrixTaz, ExperimentRoute
 from lib.console_progress import ConsoleProgress
 from lib import google_lines
@@ -125,6 +128,35 @@ def import_experiment(filename, description):
             er.save()
             er = ExperimentRoute(route=route, vector_index=rt, description=description, true_split=True)
             er.save()
+    transaction.commit()
+    transaction.set_autocommit(ac)
+
+def import_experiment_data(description):
+    route_split = sio.loadmat(open("{0}/Phi/outputSmallData.mat".format(DATA_PATH)))
+    b = np.squeeze(np.asarray(route_split['x_true']))
+    sql = """
+    UPDATE orm_experimentroute AS er SET
+        value = %s
+    WHERE vector_index = %s AND er.description = %s AND er.true_split=TRUE;
+    """
+    values = [(v,k,description) for k, v in enumerate(b)]
+    ac = transaction.get_autocommit()
+    transaction.set_autocommit(False)
+    cursor = connection.cursor()
+    cursor.executemany(sql, values)
+    transaction.commit()
+    transaction.set_autocommit(ac)
+    b = np.squeeze(np.asarray(route_split['xLBFGS']))
+    sql = """
+    UPDATE orm_experimentroute AS er SET
+        value = %s
+    WHERE vector_index = %s AND er.description = %s AND er.true_split=FALSE;
+    """
+    values = [(v,k,description) for k, v in enumerate(b)]
+    ac = transaction.get_autocommit()
+    transaction.set_autocommit(False)
+    cursor = connection.cursor()
+    cursor.executemany(sql, values)
     transaction.commit()
     transaction.set_autocommit(ac)
 

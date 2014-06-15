@@ -56,6 +56,9 @@ class ExperimentRoute(models.Model):
     description = models.TextField()
     true_split = models.BooleanField(default=False)
 
+    class Meta:
+        index_together = (("vector_index", "description"),)
+
 class Origin(models.Model):
     shape_leng = models.FloatField()
     shape_area = models.FloatField()

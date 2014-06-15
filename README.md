@@ -165,9 +165,28 @@ load.import_waypoints()
 Exit the shell, and from the bash prompt in `django_utils` run (these may take
 a while):
 ```bash
-psql -U megacell -d geodjango -f voronoi_python.sql
+psql -U <SUPERUSER> -d geodjango -f voronoi_python.sql
 psql -U megacell -d geodjango -f set_waypoint_voronoi.sql
 psql -U megacell -d geodjango -f create_od_waypoint_view.sql
+```
+
+Experiment
+==========
+To load an experiment into the database, go to `/djange_utils` and open
+`orm/load.py`. Set the file path to the appropriate path on your machine, save
+and run `django-admin.py shell --settings=settings_geo`
+Be sure that you have run all of your migrations, otherwise the following will
+take a very long time:
+```bash
+django-admin.py migrate --settings=settings_geo orm
+```
+Make sure you have the `outputSmallData.mat` file in the datasets/Phi directory.
+This should contain 2 variables: `x_true` and `xLBFGS`, which are loaded into
+the database, and associated with the appropriate route. In the shell, execute
+```python
+from orm import load
+load.import_experiment("../data/od_back_map.pickle", "first small experiment"
+load.import_experiment_data("first small experiment")
 ```
 
 Updates

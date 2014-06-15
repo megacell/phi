@@ -80,7 +80,7 @@ class XMatrix:
                             if std_tt == 0:
                                 std_tt = 1
                             travel_times = {rt : (float(tt-mean_tt) / std_tt) for rt, tt in travel_times.items()}
-                            travel_times = {rt : sigmoid(tt) for rt, tt in travel_times.items()}
+                            travel_times = {rt : sigmoid(-tt) for rt, tt in travel_times.items()}
                             normalizer = float(sum(travel_times.values()))
                             travel_times = {rt : float(tt)/normalizer for rt, tt in travel_times.items()}
                             for route, sensors in enumerate(data[i][j]):
@@ -88,6 +88,7 @@ class XMatrix:
                                 for s in sensors:
                                     self.X[s,i*self.N_TAZ+j] += tt
                                 if i in self.condensed_map and j in self.condensed_map:
+                                    od_back_map[x_ind] = (i, j)
                                     i_ind = self.condensed_map[i]
                                     j_ind = self.condensed_map[j]
                                     self.x[x_ind] = tt
