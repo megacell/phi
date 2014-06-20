@@ -1,7 +1,7 @@
 """
 Solve network tomography problem with radiation model as a baseline
 """
-import sys
+import sys, os
 import getopt
 import argparse
 import logging
@@ -10,6 +10,7 @@ import pickle
 import numpy as np
 import time
 import shapefile
+import scipy.integrate
 from scipy.sparse import csr_matrix, lil_matrix
 from scipy.sparse.linalg import lsqr, lsmr, svds
 from scipy.sparse import hstack
@@ -23,6 +24,16 @@ import radiation_model
 import sensors
 import itertools
 
+#### HACK
+django_path = (os.path.join(os.path.dirname(os.path.abspath(__file__)), 'django_utils'))
+sys.path.insert(0, django_path)
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings_geo")
+
+from orm import models
+import generate_phi
+#### END HACK
+
 args = []
 args_set = None
 data_prefix = None
@@ -35,7 +46,7 @@ ACCEPTED_LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'WARN']
 N_TAZ = 321
 N_TAZ_CONDENSED = 150
 N_ROUTES = 280691
-N_ROUTES_CONDENSED = 60394
+N_ROUTES_CONDENSED = 60393
 N_SENSORS = 1033
 FIRST_ROUTE = 0
 
@@ -96,12 +107,14 @@ if __name__ == "__main__":
     args = args_set
 
 condensed_map = pickle.load(open(data_prefix+"/small_condensed_map.pickle"))
-full_phi = phi_ds.Phi()
+if len(condensed_map.keys()) != N_TAZ_CONDENSED:
+    raise
+full_phi = phi_ds.Phi(generate_phi=generate_phi)
 
-x_matrix = x_matrix.XMatrix(args.compute_x, full_phi, condensed_map=condensed_map, use_travel_times=args.travel_times)
+x_matrix = x_matrix.XMatrix(args.compute_x, full_phi, condensed_map=condensed_map, generate_phi=generate_phi, use_travel_times=args.travel_times)
 
 if args.verify_routes:
-    sensors = full_phi.data()[TEST_ORIGIN][TEST_DESTINATION][TEST_ROUTE]
+    sensors = full_phi.data()[(TEST_ORIGIN, TEST_DESTINATION)][TEST_ROUTE]
     print "Data loaded, sample path: %s" % str(sensors)
 
 # Read pre-computed trip counts for all OD pairs (simulated with radiation model)
@@ -143,9 +156,27 @@ t_sampled = t[np.array(indexes)]
 # plt.show()
 sio.savemat(data_prefix+'/sensor_fit.mat', {'lsqr_soln':c_lsqr, 'true':sensors})
 
-plt.hist(t, bins=100, histtype='stepfilled', normed=True, color='b', label='Full')
-plt.hist(t_sampled, bins=100, histtype='stepfilled', normed=True, color='r', alpha=0.5, label='Subsampled')
+plt.hist(radflow[:,0], bins=1000, histtype='stepfilled', normed=True, color='b', label='Radiation')
+plt.hist(t, bins=100, histtype='stepfilled', normed=True, color='r', alpha=0.5, label='Tomoradiation')
 plt.legend()
+
+plt.figure()
+n,b = np.histogram(radflow[:,0], bins=1000)
+tf = n*(b[1:]+b[0:-1])/2.
+tf.astype(float)
+n.astype(float)
+plt.plot(1 - np.cumsum(n)/float(n.sum()), 1. - (np.cumsum(tf)/n.dot(b[1:])), label='Radiation')
+n,b = np.histogram(t, bins=1000)
+tf = n*(b[1:]+b[0:-1])/2.
+tf.astype(float)
+n.astype(float)
+plt.plot(1 - np.cumsum(n)/float(n.sum()), 1. - (np.cumsum(tf)/n.dot(b[1:])), label='Tomoradiation', color='r')
+sio.savemat(data_prefix+'/od_flow_hist.mat', {'flow':radflow[:,0]})
+sio.savemat(data_prefix+'/od_flow_hist_soln.mat', {'flow':radflow[:,0], 'soln':1. - (np.cumsum(tf)/n.dot(b[1:]))})
+plt.xlabel("Fraction of OD pairs")
+plt.ylabel("Percent of total network flow captured")
+plt.legend(loc=4)
+
 plt.show()
 
 flow_model = np.array(t.reshape((N_TAZ,N_TAZ)))
@@ -160,31 +191,22 @@ with open(data_prefix+'/radiation_results.csv') as fopen:
   for row in fopen:
     data.append(map(float, row.strip().split(',')[:-1]))
 
-pop = {}
-sf = shapefile.Reader(data_prefix+'/ods.shp')
-records = sf.records()
-for i in range(len(records)):
-  pop[records[i][3]] = float(records[i][4])
-
 A = lil_matrix((N_SENSORS, N_ROUTES_CONDENSED))
 
 if args.compute_a:
     a_gen_progress = ConsoleProgress(N_ROUTES, args.verbose, message="Generating A matrix")
     col_index = 0
-    with open(data_prefix+'/trips_model.csv', 'w') as fout:
-      fout.write('origin,destination,origin_index,destination_index,prob,pop20,trips\n')
-      for i in range(len(data)-1):
+    for i in range(len(data)-1):
         for j in range(len(data)-1):
-          if i > 0 and j > 0 and i != j:
-            fout.write('%s,%s,%s,%s,%s,%s,%s\n' % (data[0][i], data[j][0], rlookup[data[0][i]], rlookup[data[j][0]], data[i][j], pop[data[0][i]], max(0, flow_model[rlookup[data[0][i]], rlookup[data[j][0]]])))
-            origin, destination = rlookup[data[0][i]], rlookup[data[j][0]]
-            if origin in condensed_map and destination in condensed_map:
-                routes = full_phi.data()[origin][destination]
-                for route_index, row_indices in enumerate(routes):
-                    for row_index in row_indices:
-                        A[row_index, col_index] = max(0, flow_model[origin, destination])
-                    col_index = col_index + 1
-                    a_gen_progress.update_progress(col_index)
+            if i > 0 and j > 0 and i != j:
+                origin, destination = rlookup[data[0][i]], rlookup[data[j][0]]
+                if origin in condensed_map and destination in condensed_map:
+                    routes = full_phi.data()[origin][destination]
+                    for route_index, row_indices in enumerate(routes):
+                        for row_index in row_indices:
+                            A[row_index, col_index] = max(0, flow_model[origin, destination])
+                        col_index = col_index + 1
+                        a_gen_progress.update_progress(col_index)
     a_gen_progress.finish()
 else:
     loaded_data = sio.loadmat(args.prefix+'/route_assignment_matrices.mat')

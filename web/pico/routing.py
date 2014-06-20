@@ -26,25 +26,25 @@ DATA_PATH = '/home/steve/megacell/datasets'
 FUZZY_DIST = 10
 NUM_WORST_ROUTES = 10
 
-sensor_data = sio.loadmat(open("{0}/Phi/sensor_fit.mat".format(DATA_PATH)))
-lsqr = np.squeeze(np.asarray(sensor_data['lsqr_soln']))
-true_sensor_value = np.squeeze(np.asarray(sensor_data['true']))
-
-back_map = pickle.load(open("{0}/Phi/od_back_map.pickle".format(DATA_PATH)))
-condensed_map = defaultdict(list)
-for k, v in back_map.iteritems():
-    condensed_map[v].append(k)
+# sensor_data = sio.loadmat(open("{0}/Phi/sensor_fit.mat".format(DATA_PATH)))
+# lsqr = np.squeeze(np.asarray(sensor_data['lsqr_soln']))
+# true_sensor_value = np.squeeze(np.asarray(sensor_data['true']))
+# 
+# back_map = pickle.load(open("{0}/Phi/od_back_map.pickle".format(DATA_PATH)))
+# condensed_map = defaultdict(list)
+# for k, v in back_map.iteritems():
+#     condensed_map[v].append(k)
 
 route_split = sio.loadmat(open("{0}/Phi/outputSmallData.mat".format(DATA_PATH)))
 route_split['x'] = np.squeeze(np.asarray(route_split['xLBFGS']))
 route_split['x_true'] = np.squeeze(np.asarray(route_split['x_true']))
 
-lookup = pickle.load(open("{0}/Phi/lookup.pickle".format(DATA_PATH)))
-rlookup = {}
-for index in lookup:
-  rlookup[lookup[index]] = index
-
-points = pickle.load(open("{0}/Phi/sensors.pickle".format(DATA_PATH)))
+#lookup = pickle.load(open("{0}/Phi/lookup.pickle".format(DATA_PATH)))
+#rlookup = {}
+#for index in lookup:
+#  rlookup[lookup[index]] = index
+#
+#points = pickle.load(open("{0}/Phi/sensors.pickle".format(DATA_PATH)))
 
 def build_point_dictionary(point):
   x,y = point.x, point.y
@@ -54,7 +54,7 @@ def build_point_dictionary(point):
     'map': [x, y],
     'compare': point
   }
-sensors_transformed = [build_point_dictionary(p) for p in points]
+# sensors_transformed = [build_point_dictionary(p) for p in points]
 
 category_to_color = {
     'uniform_rand_bbox' : 'purple',
@@ -158,33 +158,34 @@ def plan(x1, y1, x2, y2, o, d):
   return [json_, sensor_map, waypoint_map]
 
 def get_worst_routes():
-    diff = route_split['x'] - route_split['x_true']
-    worst_routes, indices = thresholder(diff, NUM_WORST_ROUTES)
-    json_ = {'routes': {}}
-    for idx in indices:
-        o, d = back_map[idx]
-        od_pair_json = json.load(open('{0}/Phi/data/%s_%s.json'.format(DATA_PATH) % (o, d)))
-        routes = od_pair_json['routes']
-        sensor_map = []
-        for route_index, route in enumerate(routes):
-            if condensed_map[(o, d)][route_index] != idx:
-                continue
-            predicted_split = route_split['x'][idx]
-            true_split = route_split['x_true'][idx]
-            json_['routes'][idx] = route
-            json_['routes'][idx]['predicted_split'] = predicted_split
-            json_['routes'][idx]['true_split'] = true_split
-            json_['routes'][idx]['split_error'] = predicted_split - true_split
-            ls = decode_line(route['overview_polyline']['points'])
-            ls.set_srid(4326)
-            ls.transform(900913)
-            json_['routes'][idx]['num_sensors'] = 0
-            for sensor_ind, sensor in enumerate(sensors_transformed):
-              if sensor['compare'].distance(ls) < FUZZY_DIST:
-                json_['routes'][idx]['num_sensors'] += 1
+    #diff = route_split['x'] - route_split['x_true']
+    #worst_routes, indices = thresholder(diff, NUM_WORST_ROUTES)
+    #json_ = {'routes': {}}
+    #for idx in indices:
+    #    o, d = back_map[idx]
+    #    od_pair_json = json.load(open('{0}/Phi/data/%s_%s.json'.format(DATA_PATH) % (o, d)))
+    #    routes = od_pair_json['routes']
+    #    sensor_map = []
+    #    for route_index, route in enumerate(routes):
+    #        if condensed_map[(o, d)][route_index] != idx:
+    #            continue
+    #        predicted_split = route_split['x'][idx]
+    #        true_split = route_split['x_true'][idx]
+    #        json_['routes'][idx] = route
+    #        json_['routes'][idx]['predicted_split'] = predicted_split
+    #        json_['routes'][idx]['true_split'] = true_split
+    #        json_['routes'][idx]['split_error'] = predicted_split - true_split
+    #        ls = decode_line(route['overview_polyline']['points'])
+    #        ls.set_srid(4326)
+    #        ls.transform(900913)
+    #        json_['routes'][idx]['num_sensors'] = 0
+    #        for sensor_ind, sensor in enumerate(sensors_transformed):
+    #          if sensor['compare'].distance(ls) < FUZZY_DIST:
+    #            json_['routes'][idx]['num_sensors'] += 1
 
-    json_['routes'] = [v for k, v in json_['routes'].iteritems()]
-    return json_
+    #json_['routes'] = [v for k, v in json_['routes'].iteritems()]
+    #return json_
+    return {'routes':None}
 
 def thresholder(y,m):
     ys_idx = np.argsort(-np.abs(y))

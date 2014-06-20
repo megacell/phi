@@ -21,12 +21,13 @@ class XMatrix:
     N_SENSORS = 1033
     FIRST_ROUTE = 0
 
-    def __init__(self, compute=True, phi=None, condensed_map=None, use_travel_times=False):
+    def __init__(self, compute=True, phi=None, condensed_map=None, generate_phi=None, use_travel_times=False):
         if compute:
             # Load the data.
             data_progress = ConsoleProgress(1, message="Loading phi")
             self.condensed_map = condensed_map
-            data = pickle.load(open(self.__class__.data_prefix+'/phi.pickle'))
+# TODO: replace with experiment id
+            data = generate_phi.phi_generation_sql(1)
             phi.set_data(data)
             data_progress.finish()
             self.generate_routing_matrix(data, use_travel_times)

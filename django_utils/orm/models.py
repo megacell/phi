@@ -59,6 +59,17 @@ class ExperimentRoute(models.Model):
     class Meta:
         index_together = (("vector_index", "description"),)
 
+class Experiment(models.Model):
+    description = models.TextField()
+    name = models.TextField()
+    run_time = models.DateTimeField()
+
+class ExperimentSensor(models.Model):
+    experiment = models.ForeignKey('Experiment')
+    sensor = models.ForeignKey('Sensor')
+    vector_index = models.IntegerField()
+    value = models.FloatField(null=True, blank=True)
+
 class Origin(models.Model):
     shape_leng = models.FloatField()
     shape_area = models.FloatField()

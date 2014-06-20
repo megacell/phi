@@ -43,7 +43,7 @@ if (feature.properties) {
 filter: function(feature, layer) {
 if (feature.properties) {
     TAZ = feature.properties['TAZ_ID_1']
-    return (valid_taz.indexOf(TAZ) >= 0)
+    return 1;//(valid_taz.indexOf(TAZ) >= 0)
 }
 }
 });
