@@ -11,3 +11,4 @@ CREATE TABLE agent_trajectories (
   s3 float
 );
 \copy agent_trajectories FROM '../data/agents_small.csv' WITH CSV HEADER;
+GRANT ALL ON waypoint_od_bins TO megacell;
