@@ -173,6 +173,20 @@ load.import_experiment("../data/od_back_map.pickle", "first small experiment")
 load.import_experiment_data("first small experiment")
 ```
 
+Experiment Sensors
+==================
+From the django shell run
+```python
+from orm import models
+e = models.Experiment(description="first small experiment")
+e.save()
+print e.id
+from orm import load
+# The following assumes you have a route_assignment_matrices_ntt.mat in the data
+# folder, as well as a sensors.csv file
+load.import_experiment_sensors("first small experiment")
+```
+
 Updates
 =======
 If you ran most of these a while ago, you may have to go back and run all of
