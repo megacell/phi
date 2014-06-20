@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS agent_trajectory_experiment;
 CREATE TABLE agent_trajectory_experiment AS
     SELECT R.id, A.orig, A.dest, A.route_choice,
         count(A.route_choice) AS value 
@@ -20,3 +21,5 @@ CREATE TABLE agent_trajectory_experiment AS
         AND R.od_route_index = A.route_choice
     GROUP BY A.orig, A.dest, A.route_choice, R.id
     ORDER BY A.orig, A.dest, A.route_choice;
+GRANT ALL ON agent_trajectory_experiment TO megacell;
+

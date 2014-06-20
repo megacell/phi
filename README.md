@@ -178,7 +178,8 @@ Experiment Sensors
 From the django shell run
 ```python
 from orm import models
-e = models.Experiment(description="first small experiment")
+import datetime
+e = models.Experiment(description="first small experiment",run_time=datetime.datetime.now())
 e.save()
 print e.id
 from orm import load
