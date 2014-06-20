@@ -203,3 +203,30 @@ def import_routes():
         getRoutesAndSave(o, d)
         gen_tt.increment_progress()
     gen_tt.finish()
+
+def import_experiment_from_agent_google_match():
+    import uuid
+    from django.db import transaction
+    from phidb.db.backends.postgresql_psycopg2.base import *
+    from django.db import connection
+    import numpy as np
+
+    with server_side_cursors(connection):
+        cursor = connection.cursor()
+
+        query = """
+        """
+        cursor.execute(query)
+        results = [row for row in cursor]
+        results = [(i,o,d,r,v) for (i,o,d,r,v) in results]
+        print 'len: %s' % len(results)
+
+    description = 'agents_google_match'
+    ac = transaction.get_autocommit()
+    transaction.set_autocommit(False)
+    for j,(i,o,d,r,v) in enumerate(results):
+        er = ExperimentRoute(route=i, vector_index=j, value=v,
+                description=description, true_split=True)
+        er.save()
+    transaction.commit()
+    transaction.set_autocommit(ac)
