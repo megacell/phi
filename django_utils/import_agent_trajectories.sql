@@ -10,5 +10,5 @@ CREATE TABLE agent_trajectories (
   s2 float,
   s3 float
 );
-\copy agent_trajectories FROM '../data/agents_small.csv' WITH CSV HEADER;
+\copy agent_trajectories FROM '../data/agents_500k.csv' WITH CSV HEADER;
 GRANT ALL ON agent_trajectories TO megacell;

@@ -7,7 +7,7 @@ CREATE TABLE agent_trajectory_experiment AS
             WHEN B.m<=0.2 THEN -1
             WHEN s1=B.m THEN 0
             WHEN s2=B.m THEN 1
-            WHEN s3=B.m THEN 2
+            WHEN s3=B.m THEN 1
             ELSE -1
         END
         AS route_choice
@@ -23,3 +23,14 @@ CREATE TABLE agent_trajectory_experiment AS
     ORDER BY A.orig, A.dest, A.route_choice;
 GRANT ALL ON agent_trajectory_experiment TO megacell;
 
+-- UPDATE table with normalized values, then add to experimentroutes table
+ALTER TABLE agent_trajectory_experiment ALTER value TYPE float;
+UPDATE agent_trajectory_experiment D
+SET value = C.value
+FROM (SELECT B.id, B.value/A.total as value
+    FROM (SELECT orig, dest, sum(value) as total
+        FROM agent_trajectory_experiment
+        GROUP BY orig, dest) A,
+    agent_trajectory_experiment B
+    WHERE A.orig = B.orig AND A.dest = B.dest) C
+where D.id = C.id;
