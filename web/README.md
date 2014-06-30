@@ -90,3 +90,6 @@ RewriteRule ^(.*)$ /pico/$1 [QSA,PT,L]
     #
 </Directory>
 ```
+
+Once you get this all set up, then you should be able to hit http://localhost/LA
+and see the webpage.
