@@ -2,7 +2,8 @@
 DROP TABLE IF EXISTS agent_trajectory_experiment;
 CREATE TABLE agent_trajectory_experiment AS
     SELECT R.id, A.orig, A.dest, A.route_choice,
-        count(A.route_choice) AS route_split, C.waypoints
+        count(A.route_choice) AS route_value, 1 as route_split_wp,
+        1 as route_split_od, C.waypoints
     FROM (SELECT B.orig, B.dest, B.m,
         CASE 
             WHEN B.m<=0.2 THEN -1 -- Threshold of 0.2
@@ -25,14 +26,29 @@ CREATE TABLE agent_trajectory_experiment AS
     ORDER BY A.orig, A.dest, A.route_choice;
 GRANT ALL ON agent_trajectory_experiment TO megacell;
 
--- UPDATE table with normalized values, then add to experimentroutes table
-ALTER TABLE agent_trajectory_experiment ALTER route_split TYPE float;
+-- UPDATE table with normalized values (by waypoints)
+ALTER TABLE agent_trajectory_experiment ALTER route_value TYPE float;
+ALTER TABLE agent_trajectory_experiment ALTER route_split_wp TYPE float;
+ALTER TABLE agent_trajectory_experiment ALTER route_split_od TYPE float;
 UPDATE agent_trajectory_experiment D
-SET route_split = C.route_split
-FROM (SELECT B.id, B.route_split/A.total as route_split
-    FROM (SELECT orig, dest, sum(route_split) as total
+SET route_split_wp = C.route_split_wp
+FROM (SELECT B.id, B.route_value/A.total as route_split_wp
+    FROM (SELECT orig, dest, waypoints, sum(route_value) as total
+        FROM agent_trajectory_experiment
+        GROUP BY waypoints, orig, dest) A,
+    agent_trajectory_experiment B
+    WHERE A.orig = B.orig AND A.dest = B.dest AND A.waypoints = B.waypoints) C
+where D.id = C.id;
+
+-- UPDATE table with normalized values (by OD)
+UPDATE agent_trajectory_experiment D
+SET route_split_od = C.route_split_od
+FROM (SELECT B.id, B.route_value/A.total as route_split_od
+    FROM (SELECT orig, dest, sum(route_value) as total
         FROM agent_trajectory_experiment
         GROUP BY orig, dest) A,
     agent_trajectory_experiment B
     WHERE A.orig = B.orig AND A.dest = B.dest) C
 where D.id = C.id;
+
+-- TODO add to experimentroutes table
