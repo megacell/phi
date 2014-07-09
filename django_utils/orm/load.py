@@ -92,7 +92,7 @@ def _save_sensor(params):
         raise
 
 def import_sensors(verbose=True):
-    for row in csv.DictReader(open("{0}/Phi/Sensors/sensors.csv".format(paths.dataset_path()))):
+    for row in csv.DictReader(open("{0}/Phi/Sensors/sensors.csv".format(DATA_PATH))):
         row = {k: v.strip() for k, v in row.iteritems() if v.strip()}
         params = _remap_column_names(row)
         params['road_type']='Freeway'
