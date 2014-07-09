@@ -1,5 +1,8 @@
 from django.contrib.gis.db import models
 
+canonical_projection = 4326
+google_projection = 900913 # alternatively 3857
+
 class Sensor(models.Model):
     pems_id = models.IntegerField(null=True, blank=True)
     freeway = models.CharField(null=True, blank=True, max_length=50)
@@ -10,8 +13,8 @@ class Sensor(models.Model):
     state_pm = models.CharField(null=True, blank=True, max_length=50)
     absolute_pm = models.FloatField(null=True, blank=True)
 
-    location = models.PointField(srid=4326)
-    location_dist = models.PointField(srid=900913, null=True, blank=True)
+    location = models.PointField(srid=canonical_projection)
+    location_dist = models.PointField(srid=google_projection, null=True, blank=True)
     objects = models.GeoManager()
 
     sensor_length = models.FloatField(null=True, blank=True)
@@ -86,8 +89,8 @@ class Origin(models.Model):
     pop08 = models.FloatField()
     hh08 = models.FloatField()
     emp08 = models.FloatField()
-    geom = models.PolygonField(srid=4326)
-    geom_dist = models.PolygonField(srid=900913, null=True, blank=True)
+    geom = models.PolygonField(srid=canonical_projection)
+    geom_dist = models.PolygonField(srid=google_projection, null=True, blank=True)
     objects = models.GeoManager()
 
     # Returns the string representation of the model.
@@ -119,10 +122,10 @@ class Waypoint(models.Model):
     geom is voronoi parition, location is center (location of tower)
     """
     category = models.CharField(null=True, blank=True, max_length=100)
-    geom = models.PolygonField(srid=4326, null=True, blank=True)
-    geom_dist = models.PolygonField(srid=900913, null=True, blank=True)
-    location = models.PointField(srid=4326)
-    location_dist = models.PointField(srid=900913, null=True, blank=True)
+    geom = models.PolygonField(srid=canonical_projection, null=True, blank=True)
+    geom_dist = models.PolygonField(srid=google_projection, null=True, blank=True)
+    location = models.PointField(srid=canonical_projection)
+    location_dist = models.PointField(srid=google_projection, null=True, blank=True)
     objects = models.GeoManager()
 
     # Returns the string representation of the model.
@@ -130,8 +133,8 @@ class Waypoint(models.Model):
         return "Category: %s, Center: %s" % (self.category, repr(self.location.coords))
 
 class Route(models.Model):
-    geom = models.LineStringField(srid=4326)
-    geom_dist = models.LineStringField(srid=900913, null=True, blank=True)
+    geom = models.LineStringField(srid=canonical_projection)
+    geom_dist = models.LineStringField(srid=google_projection, null=True, blank=True)
     summary = models.CharField(max_length=100)
     origin_taz = models.FloatField()
     destination_taz = models.FloatField()
