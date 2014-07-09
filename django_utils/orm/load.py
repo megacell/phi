@@ -14,8 +14,12 @@ from models import Sensor, Origin, Route, Waypoint, MatrixTaz, ExperimentRoute, 
 from lib.console_progress import ConsoleProgress
 from lib import google_lines
 import models
+import kmzsensorfilereader as kmz
 
 logging.basicConfig(level=logging.DEBUG)
+
+canonical_projection = 4326
+google_projection = 900913 # alternatively 3857
 
 N_TAZ = 321
 # FIXME poor practice
@@ -32,8 +36,8 @@ def load_origins(verbose=True):
     lm.save(strict=True, verbose=verbose)
     for o in Origin.objects.all():
         o.geom_dist = o.geom.clone()
-        o.geom_dist.srid = 4326
-        o.geom_dist.transform(900913)
+        o.geom_dist.srid = canonical_projection
+        o.geom_dist.transform(google_projection)
         o.save()
         logging.info("Saved origin with distance.")
 
@@ -72,19 +76,32 @@ sensor_mapping = {
 }
 sensor_mapping_reverse = {v:k for k,v in sensor_mapping.iteritems()}
 
+def _remap_column_names(row):
+    params = {sensor_mapping_reverse[k]: v for k, v in row.iteritems() if sensor_mapping_reverse.has_key(k)}
+    params['location'] = Point(float(row['Longitude']), float(row['Latitude']), srid=canonical_projection)
+    params['location_dist'] = Point(float(row['Longitude']), float(row['Latitude']), srid=canonical_projection)
+    params['location_dist'].transform(google_projection)
+    return params
+
+def _save_sensor(params):
+    try:
+        sensor = Sensor(**params)
+        sensor.save()
+    except:
+        print params
+        raise
+
 def import_sensors(verbose=True):
-    for row in csv.DictReader(open("{0}/Phi/sensors.csv".format(DATA_PATH))):
+    for row in csv.DictReader(open("{0}/Phi/Sensors/sensors.csv".format(DATA_PATH))):
         row = {k: v.strip() for k, v in row.iteritems() if v.strip()}
-        params = {sensor_mapping_reverse[k]: v for k, v in row.iteritems() if sensor_mapping_reverse.has_key(k)}
-        params['location'] = Point(float(row['Longitude']), float(row['Latitude']), srid=4326)
-        params['location_dist'] = Point(float(row['Longitude']), float(row['Latitude']), srid=4326)
-        params['location_dist'].transform(900913)
-        try:
-            sensor = Sensor(**params)
-            sensor.save()
-        except:
-            print params
-            raise
+        params = _remap_column_names(row)
+        params['road_type']='Freeway'
+        _save_sensor(params)
+    for row in kmz.getArterialSensors():
+        params = _remap_column_names(row)
+        params['road_type']='Arterial'
+        print(params)
+        _save_sensor(params)
 
 def import_lookup(verbose=True):
     waypoints = pickle.load(open("{0}/Phi/lookup.pickle".format(DATA_PATH)))
@@ -103,8 +120,8 @@ def import_waypoints(verbose=True):
     transaction.set_autocommit(False)
     for category, locations in waypoints.iteritems():
         for location in locations:
-            pt = Point(tuple(location), srid=4326)
-            wp = Waypoint(location=pt, location_dist=pt.transform(900913, clone=True), category=category)
+            pt = Point(tuple(location), srid=canonical_projection)
+            wp = Waypoint(location=pt, location_dist=pt.transform(google_projection, clone=True), category=category)
             wp.save()
     transaction.commit()
     transaction.set_autocommit(ac)
@@ -192,9 +209,9 @@ def import_routes():
         for route_index, route in enumerate(data['routes']):
             gpolyline = route['overview_polyline']['points']
             linestring = google_lines.decode_line(gpolyline)
-            linestring.set_srid(4326)
+            linestring.set_srid(canonical_projection)
             linestring_dist = linestring.clone()
-            linestring_dist.transform(900913)
+            linestring_dist.transform(google_projection)
             route_object = Route(geom=linestring, geom_dist=linestring_dist, \
                     summary=route['summary'], origin_taz=taz_lookup[o], \
                     destination_taz=taz_lookup[d], \
