@@ -1,3 +1,4 @@
+import os
 from zipfile import ZipFile
 import xml.etree.ElementTree as ET
 
@@ -38,7 +39,8 @@ class KMZSensorFileReader:
         return self._enumeratesensors(self.document_root)
 
 def getArterialSensors():
-    path ='/home/lei/datasets/Phi/Sensors/ArterialSensors-I210_data_map.kmz'
+    THIS_DIR = os.path.dirname(os.path.realpath(__file__))
+    path ='%s/../../../datasets/Phi/Sensors/ArterialSensors-I210_data_map.kmz' % THIS_DIR
     with ZipFile(path,'r') as file:
         namelist = file.namelist()
         if namelist:
