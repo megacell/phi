@@ -41,6 +41,9 @@ class Sensor(models.Model):
     hh_08 = models.FloatField(null=True, blank=True)
     emp_08 = models.FloatField(null=True, blank=True)
 
+    # whether or not the sensor is positioned on a highway or arterial roadway
+    road_type = models.CharField(null=True, blank=True, max_length=50, default='Freeway')
+
     def location_wgs84(self):
         return self.location_dist
 
