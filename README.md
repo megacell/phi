@@ -149,9 +149,9 @@ Some of the commands will take a while to run, in particular importing routes.
 Exit the shell, and from the bash prompt in `django_utils` run (these may take
 a while too):
 ```bash
-psql -U <SUPERUSER> -d geodjango -f voronoi_python.sql
-psql -U megacell -d geodjango -f set_waypoint_voronoi.sql
-psql -U megacell -d geodjango -f create_od_waypoint_view.sql
+psql -U <SUPERUSER> -d geodjango -f waypoints/voronoi_python.sql
+psql -U megacell -d geodjango -f waypoints/set_waypoint_voronoi.sql
+psql -U megacell -d geodjango -f waypoints/create_od_waypoint_view.sql
 ```
 
 Loading the experiment(s)

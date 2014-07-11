@@ -1,8 +1,4 @@
-import uuid
-
-from django.db import transaction
 from phidb.db.backends.postgresql_psycopg2.base import *
-
 from django.db import connection
 
 def waypoint_bins():

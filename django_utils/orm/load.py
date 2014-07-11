@@ -98,7 +98,7 @@ def import_lookup(verbose=True):
 
 
 def import_waypoints(verbose=True):
-    waypoints = pickle.load(open("{0}/Phi/waypoints-2000.pkl".format(DATA_PATH)))
+    waypoints = pickle.load(open("{0}/Phi/waypoints/waypoints-950.pkl".format(DATA_PATH)))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)
     for category, locations in waypoints.iteritems():
@@ -116,7 +116,7 @@ def find_route_by_origin_destination_route_index(o, d, idx):
 def import_experiment_sensors(description):
     """Assumes you have an experiment with that description"""
 # Load b vector from MAT file
-    route_split = sio.loadmat(open("{0}/Phi/route_assignment_matrices_ntt.mat".format(DATA_PATH)))
+    route_split = sio.loadmat(open("{0}/Phi/experiment_matrices/route_assignment_matrices_ntt.mat".format(DATA_PATH)))
     b = np.squeeze(np.asarray(route_split['b']))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)

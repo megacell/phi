@@ -16,9 +16,9 @@ from phidb.db.backends.postgresql_psycopg2.base import *
 from collections import defaultdict
 
 from django.db import connection
+import config as c
 
 logging.basicConfig(level=logging.DEBUG)
-data_prefix = '/home/steve/megacell/datasets/Phi'
 N_TAZ = 321
 N_TAZ_TARGET = 321
 N_ROUTES = 280691
@@ -58,4 +58,5 @@ def generate_and_pickle_phi():
       'FUZZY_DIST': FUZZY_DIST
     }
     pickle.dump({'phi':phi_generation_sql(), 'metadata':metadata},
-            open(data_prefix+'/phi_condensed'+selected_origin_id+'_db.pickle', 'w'))
+            open('%s/phi_condensed%s_db.pickle' % (c.DATA_DIR,
+                selected_origin_id), 'w'))
