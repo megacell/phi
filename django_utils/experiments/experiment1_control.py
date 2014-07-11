@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.io as sio
+import scipy.sparse as sps
 
 from phidb.db.backends.postgresql_psycopg2.base import *
 from django.db import connection
@@ -61,7 +62,7 @@ def block_sizes_to_U(block_sizes):
     I = np.cumsum(blocks)-1 
     J = np.array(range(total))
     V = np.ones(total)
-    return sparse.csr_matrix((V,(I,J)))
+    return sps.csr_matrix((V,(I,J)))
 
 def A_generation_sql(phi):
     with server_side_cursors(connection):
@@ -82,7 +83,7 @@ def A_generation_sql(phi):
         I.extend(route_to_links)
         J.extend([i]*size)
         V.extend([1]*size)
-    return sparse.csr_matrix((V,(I,J)),shape=(1033,len(indices)))
+    return sps.csr_matrix((V,(I,J)),shape=(1033,len(indices)))
 
 if __name__ == "__main__":
     # phi = generate_phi.phi_generation_sql(2)
@@ -93,9 +94,9 @@ if __name__ == "__main__":
     assert(np.sum(U.dot(x)) == U.shape[0])
     sub_phi = A_generation_sql(phi)
     size = f.shape[0]
-    F = sparse.dia_matrix(([f],[0]),shape=(size,size))
+    F = sps.dia_matrix(([f],[0]),shape=(size,size))
     A = sub_phi.dot(F)
     b = A.dot(x)
 
-    sio.savemat('%s/%s/' % (c.DATA_DIR,c.EXPERIMENT_MATRICES_DIR, OUTFILE),
+    sio.savemat('%s/%s/%s' % (c.DATA_DIR,c.EXPERIMENT_MATRICES_DIR, OUTFILE),
             {'A':A, 'U':U, 'x':x, 'b':b, 'f':f})

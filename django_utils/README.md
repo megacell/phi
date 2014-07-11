@@ -58,15 +58,15 @@ From the `<REPO_HOME>/django_utils`:
 From the django IPython shell:
 ```python
 import generate_phi
-experiments/phi = generate_phi.phi_generation_sql(<EXPERIMENT ID>)
-experiments/run -i experiments/experiment1.py
+phi = generate_phi.phi_generation_sql(<EXPERIMENT ID>)
+run -i experiments/experiment1.py
 run -i experiments/experiment1_control.py
 ```
 1. We run the experiment via the traffic-estimation repo. From an IPython shell
 in the python directory (the parent directory):
 ```python
-run -i main.py --log=DEBUG --file=experiment_matrices/experiment1_control_matrices.mat --solver BB
-run -i main.py --log=DEBUG --file=experiment_matrices/experiment1_matrices.mat --solver BB
+run -i main.py --log=DEBUG --file=experiment1_control_matrices.mat --solver BB
+run -i main.py --log=DEBUG --file=experiment1_matrices.mat --solver BB
 ```
 
 Experiment 2
