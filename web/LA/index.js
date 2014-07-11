@@ -290,8 +290,9 @@ var ods = new L.Shapefile('data/ods.zip',{onEachFeature:function(feature, layer)
       TMP = data;
     });
 
-    d3.csv("data/sensors.csv", function(data) {
-      data.forEach(function(d){
+    routing.get_sensor_data(function (x){
+      var s=JSON.parse(x);
+      s.forEach(function(d){
         var sensor = L.circle([d.Latitude, d.Longitude], 25, {
           color: 'black',
           fillColor: '#f03',
