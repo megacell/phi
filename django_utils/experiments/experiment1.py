@@ -18,7 +18,7 @@ def x_generation_sql():
         sql_query = """
         SELECT route_split_wp
         FROM agent_trajectory_experiment
-        ORDER BY orig, dest, route_choice
+        ORDER BY orig, dest, waypoints, route_choice
         """
         cursor.execute(sql_query)
         return np.squeeze(np.array([row for row in cursor]))
@@ -30,8 +30,8 @@ def f_generation_sql():
         sql_query = """
         SELECT sum(route_value)
         FROM agent_trajectory_experiment
-        GROUP BY waypoints, orig, dest
-        ORDER BY orig, dest
+        GROUP BY orig, dest, waypoints
+        ORDER BY orig, dest, waypoints
         """
         cursor.execute(sql_query)
         return np.squeeze(np.array([row for row in cursor]))
@@ -43,8 +43,8 @@ def U_generation_sql():
         sql_query = """
         SELECT count(id)
         FROM agent_trajectory_experiment
-        GROUP BY waypoints, orig, dest
-        ORDER BY orig, dest
+        GROUP BY orig, dest, waypoints
+        ORDER BY orig, dest, waypoints
         """
         cursor.execute(sql_query)
         block_sizes = np.squeeze(np.array([row for row in cursor]))
@@ -72,7 +72,7 @@ def A_generation_sql(phi):
         SELECT b.matrix_id AS orig, c.matrix_id AS dest, a.route_choice
         FROM agent_trajectory_experiment a, orm_matrixtaz b, orm_matrixtaz c
         WHERE a.orig = b.taz_id AND a.dest = c.taz_id
-        ORDER BY a.orig, a.dest, a.route_choice
+        ORDER BY a.orig, a.dest, a.waypoints, a.route_choice
         """
         cursor.execute(sql_query)
         indices = [row for row in cursor]
@@ -85,16 +85,34 @@ def A_generation_sql(phi):
         V.extend([1]*size)
     return sps.csr_matrix((V,(I,J)),shape=(1033,len(indices)))
 
+def set_diff(A,B):
+    return np.array(list(set(A).difference(set(B))))
+
 if __name__ == "__main__":
     # phi = generate_phi.phi_generation_sql(2)
     x = x_generation_sql()
     U = U_generation_sql()
     f = f_generation_sql()
-    f = U.T.dot(f)
+
+    for i in range(3):
+        zs = np.nonzero(f==0)[0]
+        zs_routes = np.searchsorted(U.nonzero()[0],zs)
+        nz_routes = set_diff(range(x.shape[0]),zs_routes)
+
+        U = U[:,nz_routes]
+        nz = np.array(list(set(U.nonzero()[0])))
+        f = f[nz]
+        x = x[nz_routes]
+        U = U[nz,:]
+
     assert(np.sum(U.dot(x)) == U.shape[0])
-    sub_phi = A_generation_sql(phi)
+
+    f = U.T.dot(f)
     size = f.shape[0]
     F = sps.dia_matrix(([f],[0]),shape=(size,size))
+
+    sub_phi = A_generation_sql(phi)
+    sub_phi = sub_phi[:,nz_routes]
     A = sub_phi.dot(F)
     b = A.dot(x)
 

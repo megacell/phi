@@ -18,7 +18,7 @@ def x_generation_sql():
         sql_query = """
         SELECT route_split_od
         FROM agent_trajectory_experiment
-        ORDER BY orig, dest, route_choice
+        ORDER BY orig, dest, waypoints, route_choice
         """
         cursor.execute(sql_query)
         return np.squeeze(np.array([row for row in cursor]))
@@ -72,7 +72,7 @@ def A_generation_sql(phi):
         SELECT b.matrix_id AS orig, c.matrix_id AS dest, a.route_choice
         FROM agent_trajectory_experiment a, orm_matrixtaz b, orm_matrixtaz c
         WHERE a.orig = b.taz_id AND a.dest = c.taz_id
-        ORDER BY a.orig, a.dest, a.route_choice
+        ORDER BY a.orig, a.dest, a.waypoints, a.route_choice
         """
         cursor.execute(sql_query)
         indices = [row for row in cursor]
@@ -90,11 +90,14 @@ if __name__ == "__main__":
     x = x_generation_sql()
     U = U_generation_sql()
     f = f_generation_sql()
-    f = U.T.dot(f)
+
     assert(np.sum(U.dot(x)) == U.shape[0])
-    sub_phi = A_generation_sql(phi)
+
+    f = U.T.dot(f)
     size = f.shape[0]
     F = sps.dia_matrix(([f],[0]),shape=(size,size))
+
+    sub_phi = A_generation_sql(phi)
     A = sub_phi.dot(F)
     b = A.dot(x)
 
