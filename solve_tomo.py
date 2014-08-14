@@ -1,28 +1,26 @@
 """
 Solve network tomography problem with radiation model as a baseline
 """
-import sys, os
-import getopt
+import sys
+import os
 import argparse
 import logging
-import csv
 import pickle
 import numpy as np
-import time
-import shapefile
-import scipy.integrate
 from scipy.sparse import csr_matrix, lil_matrix
-from scipy.sparse.linalg import lsqr, lsmr, svds
-from scipy.sparse import hstack
-from matplotlib import pyplot as plt
-import ipdb
+from scipy.sparse.linalg import lsqr
 import scipy.io as sio
+import itertools
+
+from matplotlib import pyplot as plt
+
+from django_utils.experiments.experiment1 import generate_phi
 from lib.console_progress import ConsoleProgress
 import phi_ds
 import x_matrix
 import radiation_model
 import sensors
-import itertools
+
 
 #### HACK
 django_path = (os.path.join(os.path.dirname(os.path.abspath(__file__)), 'django_utils'))
@@ -30,8 +28,6 @@ sys.path.insert(0, django_path)
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings_geo")
 
-from orm import models
-import generate_phi
 #### END HACK
 
 args = []

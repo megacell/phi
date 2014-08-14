@@ -154,3 +154,23 @@ class Route(models.Model):
     # Returns the string representation of the model.
     def __unicode__(self):
         return "OD: %s to %s, Travel Time: %s Centroid: %s" % (self.origin_taz, self.destination_taz, self.travel_time or 0, repr(self.geom.centroid.coords))
+
+class Experiment2Route(models.Model):
+    geom = models.MultiLineStringField(srid=canonical_projection)
+    geom_dist = models.MultiLineStringField(srid=google_projection, null=True, blank=True)
+
+    start_point = models.PointField(srid=canonical_projection)
+    end_point = models.PointField(srid=canonical_projection)
+
+    origin_taz = models.FloatField()
+    destination_taz = models.FloatField()
+    od_route_index = models.IntegerField()
+
+    # this is the total number of trajectories collapsed onto this single route
+    flow_count = models.IntegerField()
+
+    objects = models.GeoManager()
+
+    class Meta:
+        unique_together = (("origin_taz", "destination_taz", "od_route_index"),)
+        index_together = (("origin_taz", "destination_taz"),)

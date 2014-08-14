@@ -15,16 +15,16 @@ from lib.console_progress import ConsoleProgress
 from lib import google_lines
 import models
 import kmzsensorfilereader as kmz
-
+import config as config
 logging.basicConfig(level=logging.DEBUG)
 
 canonical_projection = 4326
-google_projection = 900913 # alternatively 3857
+google_projection = 3857#900913 # alternatively 3857
 
 N_TAZ = 321
 # FIXME poor practice
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
-DATA_PATH = '%s/../../../datasets' % THIS_DIR
+DATA_PATH = config.DATA_DIR +'/../'
 data_prefix = "%s/Phi" % DATA_PATH #TODO(syadlowsky): make these consistent
 
 origin_shp = os.path.abspath('%s/Phi/ods.shp' % DATA_PATH)
@@ -92,7 +92,8 @@ def _save_sensor(params):
         raise
 
 def import_sensors(verbose=True):
-    for row in csv.DictReader(open("{0}/Phi/Sensors/sensors.csv".format(DATA_PATH))):
+    Sensor.objects.all().delete()
+    for row in csv.DictReader(open("{0}/Phi/sensors.csv".format(DATA_PATH))):
         row = {k: v.strip() for k, v in row.iteritems() if v.strip()}
         params = _remap_column_names(row)
         params['road_type']='Freeway'
@@ -100,7 +101,6 @@ def import_sensors(verbose=True):
     for row in kmz.getArterialSensors():
         params = _remap_column_names(row)
         params['road_type']='Arterial'
-        print(params)
         _save_sensor(params)
 
 def import_lookup(verbose=True):
@@ -141,7 +141,7 @@ def import_experiment_sensors(description):
     experiment = Experiment.objects.get(description=description)
 # Load CSV, enumerate over lines
     for idx, row in enumerate(csv.DictReader(open("{0}/Phi/sensors.csv".format(DATA_PATH)))):
-        sensor = Sensor.objects.get(pems_id=row['ID'])
+        sensor = Sensor.objects.get(pems_id=row['ID'], road_type='Freeway')
         es = ExperimentSensor(sensor=sensor, value=b[idx], experiment=experiment, vector_index=idx)
         es.save()
 # For each line, find value in b, and then create the ExperimentSensor with that vector_index cross-checked by PEMS id
@@ -265,3 +265,9 @@ def import_experiment_from_agent_google_match():
         er.save()
     transaction.commit()
     transaction.set_autocommit(ac)
+def import_all():
+    import_sensors()
+    load_origins()
+    import_lookup()
+    import_routes()
+    import_waypoints()

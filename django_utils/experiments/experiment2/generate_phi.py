@@ -1,0 +1,55 @@
+# import pickle
+
+from lib.console_progress import ConsoleProgress
+
+from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
+from collections import defaultdict
+
+from django.db import connection
+# import django_utils.config as c
+
+def route_count(cursor):
+    route_count_query = """
+        SELECT COUNT(*) FROM orm_experiment2route;
+        """
+    cursor.execute(route_count_query)
+    for i in cursor:
+        return i[0]
+    return 0
+
+def phi_generation_sql():
+    origins = defaultdict(dict)
+    with server_side_cursors(connection):
+        cursor = connection.cursor()
+        count = route_count(connection.cursor())
+
+        gen_tt = ConsoleProgress(count, message="Computing Phi")
+        sql_query = """
+        SELECT r.origin_taz, r.destination_taz, r.od_route_index,
+        array(
+          SELECT (SELECT vector_index FROM orm_experimentsensor es WHERE es.sensor_id = s.id LIMIT 1)
+          FROM orm_sensor s
+          WHERE ST_Distance(r.geom_dist, s.location_dist) < 10 AND s.road_type ='Freeway'
+        ) AS sensors
+        FROM orm_experiment2route r
+        """
+        cursor.execute(sql_query)
+        for row in cursor:
+            gen_tt.increment_progress()
+            o, d, rt, rs = row
+            origins[(o, d)][rt] = rs
+        gen_tt.finish()
+
+    return origins
+
+# def generate_and_pickle_phi():
+#     selected_origin_id = str(time.time())
+#     metadata = {
+#       'id': selected_origin_id,
+#       'N_TAZ': 0,
+#       'N_TAZ_CONDENSED': 0,
+#       'FUZZY_DIST': 10
+#     }
+#     pickle.dump({'phi':phi_generation_sql(1), 'metadata':metadata},
+#             open('%s/phi_condensed%s_db.pickle' % (c.DATA_DIR,
+#                 selected_origin_id), 'w'))
