@@ -113,18 +113,25 @@ def import_lookup(verbose=True):
     transaction.commit()
     transaction.set_autocommit(ac)
 
-
-def import_waypoints(verbose=True):
-    waypoints = pickle.load(open("{0}/Phi/waypoints/waypoints-950.pkl".format(DATA_PATH)))
+def load_waypoints_file(filepath, density_id):
+    waypoints = pickle.load(open("{0}/Phi/waypoints/{1}".format(DATA_PATH, filepath)))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)
     for category, locations in waypoints.iteritems():
         for location in locations:
             pt = Point(tuple(location), srid=canonical_projection)
-            wp = Waypoint(location=pt, location_dist=pt.transform(google_projection, clone=True), category=category)
+            wp = Waypoint(location=pt, location_dist=pt.transform(google_projection, clone=True), category=category, density_id=density_id)
             wp.save()
     transaction.commit()
     transaction.set_autocommit(ac)
+
+def import_waypoints(verbose=True):
+    Waypoint.objects.all().delete()
+    density = [3800,2850,1900,1425,950,713,475,238]
+    files = ["waypoints-{0}.pkl".format(d) for d in density]
+    for f,d in zip(files,density):
+        load_waypoints_file(f, d)
+
 
 def find_route_by_origin_destination_route_index(o, d, idx):
     r = Route.objects.raw("SELECT r.* FROM orm_route r INNER JOIN orm_matrixtaz t ON r.origin_taz = t.taz_id INNER JOIN orm_matrixtaz s ON r.destination_taz = s.taz_id WHERE t.matrix_id = %s AND s.matrix_id = %s AND r.od_route_index = %s LIMIT 1;", (o, d, idx))

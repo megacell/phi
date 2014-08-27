@@ -6,10 +6,11 @@ from django.db import connection
 
 from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
 import django_utils.config as c
+import django_utils.config as config
 import generate_phi as gp
 
 import pickle
-
+import os
 OUTFILE = "experiment2_waypoint_matrices.mat"
 
 def x_generation_sql():
@@ -21,26 +22,29 @@ def x_generation_sql():
         FROM
         (
             select r.flow_count as flow_count,
-                r.origin_taz as origin_taz,
-                r.destination_taz as destination_taz,
+                r.orig_taz as orig_taz,
+                r.dest_taz as dest_taz,
                 r.od_route_index as od_route_index,
                 w.waypoints as waypoints
-            from orm_experiment2route r
+            from experiment2_routes r
             join experiment2_waypoint_od_bins w
-            on r.od_route_index = w.od_route_index
+            on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
+            WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
+            ORDER BY r.orig_taz, r.dest_taz, w.waypoints
         ) r,
         (
-            SELECT sum(z.flow_count) as total, z.origin_taz as origin_taz, z.destination_taz as destination_taz, w.waypoints as waypoints
-            FROM orm_experiment2route z
+            SELECT sum(r.flow_count) as total, r.orig_taz as orig_taz, r.dest_taz as dest_taz, w.waypoints as waypoints
+            FROM experiment2_routes r
             JOIN experiment2_waypoint_od_bins w
-            ON z.od_route_index = w.od_route_index
-            GROUP BY z.origin_taz, z.destination_taz, w.waypoints
-            ORDER BY z.origin_taz, z.destination_taz, w.waypoints
+            on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
+            WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
+            GROUP BY r.orig_taz, r.dest_taz, w.waypoints
+            ORDER BY r.orig_taz, r.dest_taz, w.waypoints
         ) t
-        WHERE r.origin_taz = t.origin_taz AND r.destination_taz = t.destination_taz AND r.waypoints = t.waypoints
-        ORDER BY r.origin_taz, r.destination_taz, t.waypoints, r.od_route_index
+        WHERE r.orig_taz = t.orig_taz AND r.dest_taz = t.dest_taz AND r.waypoints = t.waypoints
+        ORDER BY r.orig_taz, r.dest_taz, t.waypoints, r.od_route_index;
         """
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, {'num_routes':config.NUM_ROUTES_PER_OD, 'density':config.WAYPOINT_DENSITY})
         return np.squeeze(np.array([row for row in cursor]))
 
 def f_generation_sql():
@@ -49,12 +53,14 @@ def f_generation_sql():
 
         sql_query = """
         SELECT sum(r.flow_count)
-        FROM orm_experiment2route r, experiment2_waypoint_od_bins w
-        WHERE r.od_route_index = w.od_route_index
-        GROUP BY r.origin_taz, r.destination_taz, w.waypoints
-        ORDER BY r.origin_taz, r.destination_taz, w.waypoints
+        from experiment2_routes r
+        join experiment2_waypoint_od_bins w
+        on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
+        where r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
+        GROUP BY r.orig_taz, r.dest_taz, w.waypoints
+        ORDER BY r.orig_taz, r.dest_taz, w.waypoints
         """
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, {'num_routes':config.NUM_ROUTES_PER_OD, 'density':config.WAYPOINT_DENSITY})
         return np.squeeze(np.array([row for row in cursor]))
 
 
@@ -64,12 +70,14 @@ def U_generation_sql():
 
         sql_query = """
         SELECT count(r.od_route_index)
-        FROM orm_experiment2route r, experiment2_waypoint_od_bins w
-        WHERE r.od_route_index = w.od_route_index
-        GROUP BY r.origin_taz, r.destination_taz, w.waypoints
-        ORDER BY r.origin_taz, r.destination_taz, w.waypoints
+        from experiment2_routes r
+        join experiment2_waypoint_od_bins w
+        on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
+        WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
+        GROUP BY r.orig_taz, r.dest_taz, w.waypoints
+        ORDER BY r.orig_taz, r.dest_taz, w.waypoints
         """
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, {'num_routes':config.NUM_ROUTES_PER_OD, 'density':config.WAYPOINT_DENSITY})
         block_sizes = np.squeeze(np.array([row for row in cursor]))
     return block_sizes_to_U(block_sizes)
 
@@ -82,7 +90,8 @@ def block_sizes_to_U(block_sizes):
         if i > 1:
             for j in range(i-1):
                 blocks.append(0)
-    I = np.cumsum(blocks)-1 
+    I = np.cumsum(blocks)-1
+    print(total)
     J = np.array(range(total))
     V = np.ones(total)
     return sps.csr_matrix((V,(I,J)))
@@ -93,12 +102,14 @@ def A_generation_sql(phi):
         cursor = connection.cursor()
 
         sql_query = """
-        SELECT r.origin_taz AS orig, r.destination_taz AS dest, r.od_route_index
-        FROM orm_experiment2route r, experiment2_waypoint_od_bins w
-        WHERE r.od_route_index = w.od_route_index
-        ORDER BY r.origin_taz, r.destination_taz, w.waypoints, r.od_route_index
+        SELECT r.orig_taz AS orig, r.dest_taz AS dest, r.od_route_index
+        from experiment2_routes r
+        join experiment2_waypoint_od_bins w
+        on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
+        WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
+        ORDER BY r.orig_taz, r.dest_taz, w.waypoints, r.od_route_index
         """
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, {'num_routes':config.NUM_ROUTES_PER_OD, 'density':config.WAYPOINT_DENSITY})
         indices = [row for row in cursor]
     I,J,V = [],[],[]
     for i,(o,d,r) in enumerate(indices):
@@ -122,7 +133,7 @@ def set_diff(A,B):
     return np.array(list(set(A).difference(set(B))))
 
 def generate_matrices(generate_phi=True):
-    path = '%s/%s/%s' % (c.DATA_DIR, c.EXPERIMENT_MATRICES_DIR, 'phi')
+    path = '%s/%s' % ('/home/lei/traffic/datasets/Phi/experiment_matrices/', 'phi')
 
     if generate_phi:
         phi = gp.phi_generation_sql()
@@ -162,7 +173,11 @@ def generate_matrices(generate_phi=True):
     A = sub_phi.dot(F)
     b = A.dot(x)
     print(b.shape)
-    sio.savemat('%s/%s/%s' % (c.DATA_DIR,c.EXPERIMENT_MATRICES_DIR, OUTFILE),
+    OUTFILE = "experiment2_waypoints_matrices_routes_{0}.mat".format(config.NUM_ROUTES_PER_OD)
+    directory = '%s/%s' % (c.DATA_DIR,c.EXPERIMENT_MATRICES_DIR)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    sio.savemat('%s/%s' % (directory, OUTFILE),
             {'A':A, 'U':U, 'x':x, 'b':b, 'f':f})
 
 if __name__ == "__main__":

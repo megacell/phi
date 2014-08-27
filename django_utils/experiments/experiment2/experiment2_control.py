@@ -9,6 +9,7 @@ import django_utils.config as c
 import generate_phi as gp
 
 import pickle
+import django_utils.config as config
 
 def x_generation_sql():
     with server_side_cursors(connection):
@@ -16,17 +17,18 @@ def x_generation_sql():
 
         sql_query = """
         SELECT r.flow_count/cast(t.total as float)
-        FROM orm_experiment2route r,
+        FROM experiment2_routes r,
         (
-            SELECT sum(flow_count) as total, origin_taz as origin_taz, destination_taz as destination_taz
-            FROM orm_experiment2route
-            GROUP BY origin_taz, destination_taz
-            ORDER BY origin_taz, destination_taz
+            SELECT sum(flow_count) as total, orig_taz as orig_taz, dest_taz as dest_taz
+            FROM experiment2_routes
+            WHERE od_route_index < %(num_routes)s
+            GROUP BY orig_taz, dest_taz
+            ORDER BY orig_taz, dest_taz
         ) t
-        WHERE r.origin_taz = t.origin_taz AND r.destination_taz = t.destination_taz
-        ORDER BY r.origin_taz, r.destination_taz, r.flow_count, r.od_route_index
+        WHERE r.orig_taz = t.orig_taz AND r.dest_taz = t.dest_taz AND r.od_route_index < %(num_routes)s
+        ORDER BY r.orig_taz, r.dest_taz, r.od_route_index, r.flow_count
         """
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, {'num_routes':config.NUM_ROUTES_PER_OD})
         return np.squeeze(np.array([row for row in cursor]))
 
 def f_generation_sql():
@@ -35,43 +37,12 @@ def f_generation_sql():
 
         sql_query = """
         SELECT sum(flow_count)
-        FROM orm_experiment2route
-        GROUP BY origin_taz, destination_taz
-        ORDER BY origin_taz, destination_taz
+        FROM experiment2_routes
+        WHERE od_route_index < %(num_routes)s
+        GROUP BY orig_taz, dest_taz
+        ORDER BY orig_taz, dest_taz
         """
-        cursor.execute(sql_query)
-        return np.squeeze(np.array([row for row in cursor]))
-
-def x_untruncated_generation_sql():
-    with server_side_cursors(connection):
-        cursor = connection.cursor()
-
-        sql_query = """
-        SELECT r.flow_count/cast(t.total as float)
-        FROM orm_experiment2route r,
-        (
-            SELECT sum(agent_id) as total, orig_TAZ as origin_taz, dest_TAZ as destination_taz
-            FROM experiment2_trajectories
-            GROUP BY orig_TAZ, dest_TAZ
-            ORDER BY orig_TAZ, dest_TAZ
-        ) t
-        WHERE r.origin_taz = t.origin_taz AND r.destination_taz = t.destination_taz
-        ORDER BY r.origin_taz, r.destination_taz, r.flow_count, r.od_route_index
-        """
-        cursor.execute(sql_query)
-        return np.squeeze(np.array([row for row in cursor]))
-
-def f_untruncated_generation_sql():
-    with server_side_cursors(connection):
-        cursor = connection.cursor()
-
-        sql_query = """
-        SELECT count(agent_id)
-        FROM experiment2_trajectories
-        GROUP BY orig_TAZ, dest_TAZ
-        ORDER BY orig_TAZ, dest_TAZ
-        """
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, {'num_routes':config.NUM_ROUTES_PER_OD})
         return np.squeeze(np.array([row for row in cursor]))
 
 def U_generation_sql():
@@ -80,11 +51,12 @@ def U_generation_sql():
 
         sql_query = """
         SELECT count(od_route_index)
-        FROM orm_experiment2route
-        GROUP BY origin_taz, destination_taz
-        ORDER BY origin_taz, destination_taz
+        FROM experiment2_routes
+        WHERE od_route_index < %(num_routes)s
+        GROUP BY orig_taz, dest_taz
+        ORDER BY orig_taz, dest_taz
         """
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, {'num_routes':config.NUM_ROUTES_PER_OD})
         block_sizes = np.squeeze(np.array([row for row in cursor]))
     return block_sizes_to_U(block_sizes)
 
@@ -107,12 +79,13 @@ def A_generation_sql(phi):
         cursor = connection.cursor()
 
         sql_query = """
-        SELECT r.origin_taz AS orig, r.destination_taz AS dest, r.od_route_index
-        FROM orm_experiment2route r
-        ORDER BY r.origin_taz, r.destination_taz, r.od_route_index
+        SELECT r.orig_taz AS orig, r.dest_taz AS dest, r.od_route_index
+        FROM experiment2_routes r
+        WHERE od_route_index < %(num_routes)s
+        ORDER BY r.orig_taz, r.dest_taz, r.od_route_index, r.flow_count
         """
 
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, {'num_routes':config.NUM_ROUTES_PER_OD})
         indices = [row for row in cursor]
     I,J,V = [],[],[]
     for i,(o,d,r) in enumerate(indices):
@@ -158,18 +131,7 @@ def generate_truncated_matrices(phi):
 
     assert (abs(np.sum(U.dot(x)) / U.dot(x).size - 1) < .0001)
 
-    OUTFILE = "experiment2_control_matrices_truncated.mat"
-
-    export_matrices(OUTFILE, U, f, phi, x)
-
-def generate_untruncated_matrices(phi):
-    U = U_generation_sql()
-    f = f_untruncated_generation_sql()
-    x = x_untruncated_generation_sql()
-
-    #assert (abs(np.sum(U.dot(x)) / U.dot(x).size - 1) < .0001)
-
-    OUTFILE = "experiment2_control_matrices_untruncated.mat"
+    OUTFILE = "experiment2_control_matrices_routes_{0}.mat".format(config.NUM_ROUTES_PER_OD)
 
     export_matrices(OUTFILE, U, f, phi, x)
 
@@ -186,7 +148,7 @@ def generate_matrices(generate_phi=True):
         phi = pickle.load(file(path))
 
     generate_truncated_matrices(phi)
-    generate_untruncated_matrices(phi)
+    #generate_untruncated_matrices(phi)
 
 if __name__ == "__main__":
     generate_matrices()

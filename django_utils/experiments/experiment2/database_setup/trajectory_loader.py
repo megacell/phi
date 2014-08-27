@@ -40,11 +40,12 @@ class TrajectoryLoader:
             orig_TAZ float,
             dest_TAZ float,
             link_ids int[]
-            );'''
+            );
+            CREATE INDEX ON experiment2_trajectories (orig_TAZ);
+            CREATE INDEX ON experiment2_trajectories (dest_TAZ);'''
         )
         self._add_trajectories(self.csv_file, cursor)
-
-if __name__ == "__main__":
+def load():
     import timeit
     tic = timeit.default_timer()
     with open(config.DATA_DIR + '/OD_500k.csv') as odcsv:
@@ -52,3 +53,6 @@ if __name__ == "__main__":
         loader.load()
     toc = timeit.default_timer()
     print (toc - tic)
+
+if __name__ == "__main__":
+    load()

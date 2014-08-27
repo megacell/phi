@@ -6,11 +6,11 @@ from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
 from collections import defaultdict
 
 from django.db import connection
-# import django_utils.config as c
+import django_utils.config as config
 
 def route_count(cursor):
     route_count_query = """
-        SELECT COUNT(*) FROM orm_experiment2route;
+        SELECT COUNT(*) FROM experiment2_routes;
         """
     cursor.execute(route_count_query)
     for i in cursor:
@@ -25,15 +25,16 @@ def phi_generation_sql():
 
         gen_tt = ConsoleProgress(count, message="Computing Phi")
         sql_query = """
-        SELECT r.origin_taz, r.destination_taz, r.od_route_index,
+        SELECT r.orig_taz, r.dest_taz, r.od_route_index,
         array(
           SELECT (SELECT vector_index FROM orm_experimentsensor es WHERE es.sensor_id = s.id LIMIT 1)
           FROM orm_sensor s
           WHERE ST_Distance(r.geom_dist, s.location_dist) < 10 AND s.road_type ='Freeway'
         ) AS sensors
-        FROM orm_experiment2route r
+        FROM experiment2_routes r
+        WHERE r.od_route_index < %(num_routes)s
         """
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, {'num_routes':config.NUM_ROUTES_PER_OD})
         for row in cursor:
             gen_tt.increment_progress()
             o, d, rt, rs = row
