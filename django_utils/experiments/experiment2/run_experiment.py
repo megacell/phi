@@ -1,6 +1,6 @@
 from orm.models import Sensor, ExperimentSensor, Experiment
 import datetime
-from database_setup import trajectory_loader as tl, route_loader as rl
+from database_setup import trajectory_loader as tl, route_loader as rl, link_geometry_loader as lgl
 import experiment2_control as e2_control
 import experiment2_waypoints as e2_waypoints
 import os
@@ -27,6 +27,8 @@ def import_experiment2_sensors(description):
 def setup_db():
     print("creating experiment 2")
     create_experiment2()
+    print("loading links")
+    lgl.load_LA_links()
     print("creating routes")
     tl.load()
     print("importing routes into the db")

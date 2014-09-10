@@ -55,10 +55,15 @@ class LinkGeometryLoader:
         sio = cStringIO.StringIO(self._read_geos())
         cursor.copy_from(sio, 'link_geometry')
 
-if __name__ == "__main__":
+def load_LA_links():
+    global timeit, tic, lgl, toc
     import timeit
+
     tic = timeit.default_timer()
     lgl = LinkGeometryLoader(connection, config.DATA_DIR + '/LA_shps/links/LA_network_links_V2')
     lgl.load()
     toc = timeit.default_timer()
     print (toc - tic)
+
+if __name__ == "__main__":
+    load_LA_links()
