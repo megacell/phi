@@ -1,11 +1,12 @@
-from django_utils.orm.models import Sensor, ExperimentSensor, Experiment
+from orm.models import Sensor, ExperimentSensor, Experiment
 import datetime
 from database_setup import trajectory_loader as tl, route_loader as rl
 import experiment2_control as e2_control
 import experiment2_waypoints as e2_waypoints
 import os
 import django_utils.config as config
-from django_utils.orm import load as lw
+from orm import load as lw
+
 def create_experiment2():
     experiment_name = 'e2'
     Experiment.objects.filter(description=experiment_name).delete()
@@ -22,15 +23,16 @@ def import_experiment2_sensors(description):
     for idx, s in enumerate(sensors):
         es = ExperimentSensor(sensor=s, value=0, experiment=experiment, vector_index=idx)
         es.save()
-def load_waypoints():
-    pass
+
 def setup_db():
+    print("creating experiment 2")
+    create_experiment2()
     print("creating routes")
-    #tl.load()
+    tl.load()
     print("importing routes into the db")
-    #rl.load()
+    rl.load()
     print ("load waypoints")
-    #lw.import_waypoints()
+    lw.import_waypoints()
     os.system("psql -U megacell -d geodjango -f /home/lei/traffic/phi-estimation/django_utils/waypoints/set_waypoint_voronoi.sql")
     print("create waypoint bins")
     os.system("psql -U megacell -d geodjango -f /home/lei/traffic/phi-estimation/django_utils/experiments/experiment2/database_setup/create_od_waypoint_view.sql")
