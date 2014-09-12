@@ -15,7 +15,7 @@ from lib.console_progress import ConsoleProgress
 from lib import google_lines
 import models
 import kmzsensorfilereader as kmz
-import config as config
+import django_utils.config as config
 logging.basicConfig(level=logging.DEBUG)
 
 canonical_projection = 4326
@@ -114,7 +114,7 @@ def import_lookup(verbose=True):
     transaction.set_autocommit(ac)
 
 def load_waypoints_file(filepath, density_id):
-    waypoints = pickle.load(open("{0}/Phi/waypoints/{1}".format(DATA_PATH, filepath)))
+    waypoints = pickle.load(open("{0}/{1}".format(config.WAYPOINTS_DIRECTORY, filepath)))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)
     for category, locations in waypoints.iteritems():
@@ -127,7 +127,7 @@ def load_waypoints_file(filepath, density_id):
 
 def import_waypoints(verbose=True):
     Waypoint.objects.all().delete()
-    density = [3800,2850,1900,1425,950,713,475,238]
+    density = config.WAYPOINT_DENSITIES
     files = ["waypoints-{0}.pkl".format(d) for d in density]
     for f,d in zip(files,density):
         load_waypoints_file(f, d)

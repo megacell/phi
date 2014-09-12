@@ -21,7 +21,7 @@ class RouteLoader:
     def import_link_geometry_table(self):
         cursor = self.connection.cursor()
         cursor.execute('''
-        SELECT * FROM link_geometry;
+        SELECT link_id, geom, geom_dist, geom_orig FROM link_geometry;
         ''')
         self.link_geom = {id: GEOSGeometry(geom_orig) for id, geom, geom_dist, geom_orig in cursor}
         self.length_cache = {id: self.link_geom[id].length for id in self.link_geom.keys()}
@@ -78,7 +78,9 @@ class RouteLoader:
         end.set_srid(srid)
         end.transform(config.canonical_projection)
 
-        return '\t'.join([str(int(o)), str(int(d)), str(od_index), str(geom.hexewkb), str(geom_dist.hexewkb), str(start.hexewkb), str(end.hexewkb), str(route._agent_count)])
+        links = '{'+','.join([str(r) for r in route._trajectory._id_sequence])+'}'
+
+        return '\t'.join([str(int(o)), str(int(d)), str(od_index), str(geom.hexewkb), str(geom_dist.hexewkb), str(start.hexewkb), str(end.hexewkb), str(route._agent_count), links])
 
     def extract_routes_from_group(self, group):
         routecreator = self.routecreator_factory()
@@ -118,7 +120,8 @@ class RouteLoader:
         geom_dist geometry(MULTILINESTRING, %(g)s),
         start_point geometry(POINT, %(c)s),
         end_point geometry(POINT, %(c)s),
-        flow_count int);
+        flow_count int,
+        links int[]);
         ''', {'c': config.canonical_projection, 'g': config.google_projection})
 
         for g in slice(groups, 1000):

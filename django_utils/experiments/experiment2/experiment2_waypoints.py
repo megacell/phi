@@ -65,6 +65,7 @@ def f_generation_sql():
 
 
 def U_generation_sql():
+    print 'generating U with density:', config.WAYPOINT_DENSITY
     with server_side_cursors(connection):
         cursor = connection.cursor()
 
@@ -119,8 +120,7 @@ def A_generation_sql(phi):
         route_to_links = list(filter(lambda x: x!=None, route_to_links))
         len2 = len(route_to_links)
         if len1 != len2:
-            pass
-            #print('filtered none values')
+            print('filtered none values')
 
         size = len(route_to_links)
         I.extend(route_to_links)
@@ -147,23 +147,11 @@ def generate_matrices(generate_phi=True):
     f = f_generation_sql()
     x = x_generation_sql()
 
-
-    # for i in range(3):
-    #     zs = np.nonzero(f==0)[0]
-    #     zs_routes = np.searchsorted(U.nonzero()[0],zs)
-    #     nz_routes = set_diff(range(x.shape[0]),zs_routes)
-    #
-    #     U = U[:,nz_routes]
-    #     nz = np.array(list(set(U.nonzero()[0])))
-    #     f = f[nz]
-    #     x = x[nz_routes]
-    #     U = U[nz,:]
-
     assert(np.sum(U.dot(x)) == U.shape[0])
 
     print(U.shape)
-    print(f.shape)
-    print(x.shape)
+    #print(f.shape)
+    #print(x.shape)
 
     f = U.T.dot(f)
     size = f.shape[0]
@@ -171,8 +159,11 @@ def generate_matrices(generate_phi=True):
 
     sub_phi = A_generation_sql(phi)
     A = sub_phi.dot(F)
-    b = A.dot(x)
-    print(b.shape)
+    #b = A.dot(x)
+    control_matrices = sio.loadmat(open(c.DATA_DIR + '/experiment_matrices/experiment2_control_matrices_routes_2000.mat'))
+    b = control_matrices['b']
+    #print(b.shape)
+    #print(np.linalg.norm(b))
     OUTFILE = "experiment2_waypoints_matrices_routes_{0}.mat".format(config.NUM_ROUTES_PER_OD)
     directory = '%s/%s' % (c.DATA_DIR,c.EXPERIMENT_MATRICES_DIR)
     if not os.path.exists(directory):

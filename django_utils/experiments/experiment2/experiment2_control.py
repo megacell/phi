@@ -11,6 +11,12 @@ import generate_phi as gp
 import pickle
 import django_utils.config as config
 
+import os
+class Experiment2_Control:
+    def __init__(self, output_file, phi, num_routes):
+        self.output_file = output_file
+        self.phi = phi
+
 def x_generation_sql():
     with server_side_cursors(connection):
         cursor = connection.cursor()
@@ -119,8 +125,10 @@ def export_matrices(OUTFILE, U, f, phi, x):
 
     b = A.dot(x)
     print(b.shape)
-
-    sio.savemat('%s/%s/%s' % (c.DATA_DIR, c.EXPERIMENT_MATRICES_DIR, OUTFILE),
+    directory = '%s/%s' % (c.DATA_DIR, c.EXPERIMENT_MATRICES_DIR)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    sio.savemat(directory +'/'+OUTFILE,
                 {'A': A, 'U': U, 'x': x, 'b': b, 'f': f})
 
 
@@ -131,13 +139,13 @@ def generate_truncated_matrices(phi):
 
     assert (abs(np.sum(U.dot(x)) / U.dot(x).size - 1) < .0001)
 
-    OUTFILE = "experiment2_control_matrices_routes_{0}.mat".format(config.NUM_ROUTES_PER_OD)
+    OUTFILE = "experiment2_waypoints_matrices_routes_{0}.mat".format(config.NUM_ROUTES_PER_OD)
 
     export_matrices(OUTFILE, U, f, phi, x)
 
 
 def generate_matrices(generate_phi=True):
-    path = '%s/%s/%s' % (c.DATA_DIR, c.EXPERIMENT_MATRICES_DIR, 'phi')
+    path = '%s/%s' % ('/home/lei/traffic/datasets/Phi/experiment_matrices/', 'phi')
 
     if generate_phi:
         phi = gp.phi_generation_sql()

@@ -2,7 +2,7 @@ from django.db import connection
 from phidb.db.backends.postgresql_psycopg2.base import *
 
 import pickle
-import config as c
+import django_utils.config as c
 
 def waypoint_bins():
     with server_side_cursors(connection):

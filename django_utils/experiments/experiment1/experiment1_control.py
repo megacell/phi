@@ -5,7 +5,7 @@ import scipy.sparse as sps
 from django.db import connection
 
 from phidb.db.backends.postgresql_psycopg2.base import *
-import config as c
+import django_utils.config as c
 
 
 OUTFILE = "experiment1_control_matrices.mat"
