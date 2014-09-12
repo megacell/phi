@@ -24,10 +24,10 @@ google_projection = 3857#900913 # alternatively 3857
 N_TAZ = 321
 # FIXME poor practice
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
-DATA_PATH = config.DATA_DIR +'/../'
-data_prefix = "%s/Phi" % DATA_PATH #TODO(syadlowsky): make these consistent
+DATA_PATH = config.DATA_DIR
+data_prefix = "%s" % DATA_PATH #TODO(syadlowsky): make these consistent
 
-origin_shp = os.path.abspath('%s/Phi/ods.shp' % DATA_PATH)
+origin_shp = os.path.abspath('%s/ods.shp' % DATA_PATH)
 
 def load_origins(verbose=True):
     lm = LayerMapping(Origin, origin_shp, models.origin_mapping,
@@ -93,7 +93,7 @@ def _save_sensor(params):
 
 def import_sensors(verbose=True):
     Sensor.objects.all().delete()
-    for row in csv.DictReader(open("{0}/Phi/sensors.csv".format(DATA_PATH))):
+    for row in csv.DictReader(open("{0}/sensors.csv".format(DATA_PATH))):
         row = {k: v.strip() for k, v in row.iteritems() if v.strip()}
         params = _remap_column_names(row)
         params['road_type']='Freeway'
@@ -104,7 +104,7 @@ def import_sensors(verbose=True):
         _save_sensor(params)
 
 def import_lookup(verbose=True):
-    waypoints = pickle.load(open("{0}/Phi/lookup.pickle".format(DATA_PATH)))
+    waypoints = pickle.load(open("{0}/lookup.pickle".format(DATA_PATH)))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)
     for matrix_id, taz_id in waypoints.iteritems():
@@ -128,7 +128,7 @@ def load_waypoints_file(filepath, density_id):
 def import_waypoints(verbose=True):
     Waypoint.objects.all().delete()
     density = config.WAYPOINT_DENSITIES
-    files = ["waypoints-{0}.pkl".format(d) for d in density]
+    files = ["ISTTT-largerbbox/waypoints-{0}.pkl".format(d) for d in density]
     for f,d in zip(files,density):
         load_waypoints_file(f, d)
 
@@ -140,14 +140,14 @@ def find_route_by_origin_destination_route_index(o, d, idx):
 def import_experiment_sensors(description):
     """Assumes you have an experiment with that description"""
 # Load b vector from MAT file
-    route_split = sio.loadmat(open("{0}/Phi/experiment_matrices/route_assignment_matrices_ntt.mat".format(DATA_PATH)))
+    route_split = sio.loadmat(open("{0}/experiment_matrices/route_assignment_matrices_ntt.mat".format(DATA_PATH)))
     b = np.squeeze(np.asarray(route_split['b']))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)
 # Find experiment
     experiment = Experiment.objects.get(description=description)
 # Load CSV, enumerate over lines
-    for idx, row in enumerate(csv.DictReader(open("{0}/Phi/sensors.csv".format(DATA_PATH)))):
+    for idx, row in enumerate(csv.DictReader(open("{0}/sensors.csv".format(DATA_PATH)))):
         sensor = Sensor.objects.get(pems_id=row['ID'], road_type='Freeway')
         es = ExperimentSensor(sensor=sensor, value=b[idx], experiment=experiment, vector_index=idx)
         es.save()
@@ -174,7 +174,7 @@ def import_experiment(filename, description):
     transaction.set_autocommit(ac)
 
 def import_experiment_data(description):
-    route_split = sio.loadmat(open("{0}/Phi/outputSmallData.mat".format(DATA_PATH)))
+    route_split = sio.loadmat(open("{0}/outputSmallData.mat".format(DATA_PATH)))
     b = np.squeeze(np.asarray(route_split['x_true']))
     sql = """
     UPDATE orm_experimentroute AS er SET
@@ -275,6 +275,6 @@ def import_experiment_from_agent_google_match():
 def import_all():
     import_sensors()
     load_origins()
-    import_lookup()
-    import_routes()
+    #import_lookup()
+    #import_routes()
     import_waypoints()

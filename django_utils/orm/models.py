@@ -1,7 +1,5 @@
 from django.contrib.gis.db import models
 import django_utils.config as config
-#canonical_projection = 4326
-#google_projection = 900913 # alternatively 3857
 
 class Sensor(models.Model):
     pems_id = models.IntegerField(null=True, blank=True)

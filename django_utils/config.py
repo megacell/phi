@@ -16,4 +16,5 @@ NUM_ROUTES_PER_OD = 3
 SIMILARITY_FACTOR = .8
 import os
 # The directory must exist for other parts of this application to function properly
+print (DATA_DIR)
 assert(os.path.isdir(DATA_DIR))

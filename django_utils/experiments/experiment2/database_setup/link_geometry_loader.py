@@ -55,7 +55,6 @@ class LinkGeometryLoader:
         sio = cStringIO.StringIO(self._read_geos())
         cursor.copy_from(sio, 'link_geometry')
 
-
 def load_LA_links():
     global timeit, tic, lgl, toc
     import timeit
@@ -66,6 +65,6 @@ def load_LA_links():
     toc = timeit.default_timer()
     print (toc - tic)
 
-
 if __name__ == "__main__":
     load_LA_links()
+

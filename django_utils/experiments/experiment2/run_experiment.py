@@ -1,12 +1,13 @@
-from django_utils.orm.models import Sensor, ExperimentSensor, Experiment
+from orm.models import Sensor, ExperimentSensor, Experiment
 import datetime
-from database_setup import trajectory_loader as tl, route_loader as rl
+from database_setup import trajectory_loader as tl, route_loader as rl, link_geometry_loader as lgl
 import experiment2_control as e2_control
 import experiment2_waypoints as e2_waypoints
 import os
 import django_utils.config as config
 from django_utils.orm import load as lw
 import generate_super_matrix as sm
+
 def create_experiment2():
     experiment_name = 'e2'
     Experiment.objects.filter(description=experiment_name).delete()
@@ -25,8 +26,10 @@ def import_experiment2_sensors(description):
         es.save()
 
 def setup_db():
-    print("creating experiment2")
+    print("creating experiment 2")
     create_experiment2()
+    print("loading links")
+    lgl.load_LA_links()
     print("creating routes")
     tl.load()
     print("importing routes into the db")
