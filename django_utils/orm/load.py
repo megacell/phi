@@ -128,7 +128,7 @@ def load_waypoints_file(filepath, density_id):
 def import_waypoints(verbose=True):
     Waypoint.objects.all().delete()
     density = config.WAYPOINT_DENSITIES
-    files = ["ISTTT-largerbbox/waypoints-{0}.pkl".format(d) for d in density]
+    files = ["waypoints-{0}.pkl".format(d) for d in density]
     for f,d in zip(files,density):
         load_waypoints_file(f, d)
 
