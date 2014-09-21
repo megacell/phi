@@ -4,7 +4,7 @@ from django_utils import config as config
 from django.db import connection
 import cStringIO
 
-class LinkGeometryLoader:
+class LinkLoader:
 
     def __init__(self, connection, shapefile_path):
         self.connection = connection
@@ -60,7 +60,7 @@ def load_LA_links():
     import timeit
 
     tic = timeit.default_timer()
-    lgl = LinkGeometryLoader(connection, config.DATA_DIR + '/LA_shps/links/LA_network_links_V2')
+    lgl = LinkLoader(connection, config.DATA_DIR + '/LA_shps/links/LA_network_links_V2')
     lgl.load()
     toc = timeit.default_timer()
     print (toc - tic)

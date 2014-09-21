@@ -1,12 +1,15 @@
 from orm.models import Sensor, ExperimentSensor, Experiment
 import datetime
-from database_setup import trajectory_loader as tl, route_loader as rl, link_geometry_loader as lgl
-import experiment2_control as e2_control
-import experiment2_waypoints as e2_waypoints
+from database_setup import trajectory_loader as tl, route_loader as rl, link_loader as lgl
+import od_matrix_generator as od
+import waypoint_od_matrix_generator as waypoints_od
+import waypoint_matrix_generator as waypoints
 import os
 import django_utils.config as config
 from django_utils.orm import load as lw
-import generate_super_matrix as sm
+import all_links_matrix_generator as sm
+import generate_phi as gp
+import pickle
 
 def create_experiment2():
     experiment_name = 'e2'
@@ -40,30 +43,54 @@ def setup_db():
     print("create waypoint bins")
     os.system("psql -U megacell -d geodjango -f /home/lei/traffic/phi-estimation/django_utils/experiments/experiment2/database_setup/create_od_waypoint_view.sql")
 
-def generate_experiment_matrices():
-    global i, d
-    config.EXPERIMENT_MATRICES_DIR = 'experiment_matrices/0'
-    config.NUM_ROUTES_PER_OD = 2000
-    e2_control.generate_matrices(True)
-    for i in [50, 40, 30, 20, 10, 3]:
-        config.NUM_ROUTES_PER_OD = i
-        e2_control.generate_matrices(False)
-    for d in config.WAYPOINT_DENSITIES:
-        print ("waypoint density:", d)
-        config.WAYPOINT_DENSITY = d
-        config.EXPERIMENT_MATRICES_DIR = 'experiment_matrices/{0}'.format(d)
-        for i in [50, 40, 30, 20, 10, 3]:
-            config.NUM_ROUTES_PER_OD = i
-            e2_waypoints.generate_matrices(False)
+def ensure_directory(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
 
-def generate_total_link_matrices():
+def waypoint_matrix_file_name(routes, waypoint_density):
+    path = "{0}/{1}/{2}".format(config.DATA_DIR, config.EXPERIMENT_MATRICES_DIR, waypoint_density)
+    ensure_directory(path)
+    return "{0}/experiment2_waypoints_matrices_routes_{1}.mat".format(path, routes)
+
+def matrix_generator(phi, routes, waypoint_density):
+    if waypoint_density == 0:
+        return od.ODMatrixGenerator(phi, routes)
+    else:
+        return waypoints.WaypointMatrixGenerator(phi, routes, waypoint_density)
+
+def get_phi():
+    filename = "{0}/{1}/phi.pkl".format(config.DATA_DIR, config.EXPERIMENT_MATRICES_DIR)
+    if os.path.isfile(filename):
+        return pickle.load(open(filename))
+    else:
+        phi = gp.PhiGenerator(2000).phi_generation_sql()
+
+        pickle.dump(phi, open(filename,'w'))
+        return phi
+
+def generate_experiment_matrices():
+    phi = get_phi()
     for d in config.WAYPOINT_DENSITIES:
+        for r in [50, 40, 30, 20, 10, 3]:
+            print("Generating Matrix Set (waypoints: {0}, routes: {1})".format(d,r))
+            matrix_generator(phi, r, d).save_matrices(waypoint_matrix_file_name(r, d))
+
+def all_link_matrix_file_name(routes, waypoint_density):
+    path = "{0}/{1}/AllLink".format(config.DATA_DIR, config.EXPERIMENT_MATRICES_DIR)
+    path2 = "{0}/{1}".format(path, waypoint_density)
+    ensure_directory(path)
+    ensure_directory(path2)
+    return "{0}/experiment2_all_link_matrices_routes_{1}.mat".format(path2, routes)
+
+def generate_all_link_matrices():
+    phi = get_phi()
+    for d in config.WAYPOINT_DENSITIES:
+        if d == 0: continue
         for r in [2000,50,40,30,20,10,3]:
-            matrix_dir = '{0}/{1}/{2}'.format(config.DATA_DIR , config.EXPERIMENT_MATRICES_DIR + '/AllLinks', d)
-            gsm = sm.GenerateSuperMatrix(r,d, matrix_dir)
-            gsm.generate_matrices()
+            print("Generating All Link Matrix Set (waypoints: {0}, routes: {1})".format(d,r))
+            sm.AllLinksMatrixGenerator(r, d).save_matrices(all_link_matrix_file_name(r, d))
 
 if __name__ == "__main__":
     #setup_db()
-    #generate_experiment_matrices()
-    generate_total_link_matrices()
+    generate_experiment_matrices()
+    #generate_all_link_matrices()
