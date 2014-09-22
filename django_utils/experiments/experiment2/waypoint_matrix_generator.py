@@ -1,4 +1,3 @@
-__author__ = 'lei'
 import numpy as np
 import scipy.io as sio
 import scipy.sparse as sps
@@ -6,34 +5,14 @@ import scipy.sparse as sps
 from django.db import connection
 
 from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
-from collections import defaultdict
-import os
 
-
-class GenerateSuperMatrix:
-    def __init__(self, routes_per_od, waypoint_density,output_file):
-        self.NUM_ROUTES_PER_OD = routes_per_od
-        self.WAYPOINT_DENSITY = waypoint_density
-        self.EXPERIMENT_MATRICES_DIR = output_file
-        self.map_links_to_index = GenerateSuperMatrix.remap_links_to_index()
-
-    @staticmethod
-    def total_links():
-        cursor = connection.cursor()
-        sql_query = '''
-        select count(distinct link_id) from link_geometry;
-        '''
-        cursor.execute(sql_query)
-        return cursor.fetchone()[0]
-
-    @staticmethod
-    def remap_links_to_index():
-        cursor = connection.cursor()
-        sql_query = '''
-        select link_index, link_id from link_geometry;
-        '''
-        cursor.execute(sql_query)
-        return {k:v for v,k in cursor}
+class WaypointMatrixGenerator:
+    def __init__(self, phi, num_routes, waypoint_density):
+        self.num_routes = num_routes
+        self.waypoint_density = waypoint_density
+        self.parameter_dictionary = {'num_routes':self.num_routes, 'density':self.waypoint_density}
+        self.phi = phi
+        self.matrices = None
 
     def x_generation_sql(self):
         with server_side_cursors(connection):
@@ -55,18 +34,18 @@ class GenerateSuperMatrix:
                 ORDER BY r.orig_taz, r.dest_taz, w.waypoints
             ) r,
             (
-                SELECT sum(r.flow_count) as total, r.orig_taz as orig_taz, r.dest_taz as dest_taz, w.waypoints as waypoints
+                SELECT sum(r.flow_count) as total, w.waypoints as waypoints
                 FROM experiment2_routes r
                 JOIN experiment2_waypoint_od_bins w
                 on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
                 WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
-                GROUP BY r.orig_taz, r.dest_taz, w.waypoints
-                ORDER BY r.orig_taz, r.dest_taz, w.waypoints
+                GROUP BY w.waypoints
+                ORDER BY w.waypoints
             ) t
-            WHERE r.orig_taz = t.orig_taz AND r.dest_taz = t.dest_taz AND r.waypoints = t.waypoints
-            ORDER BY r.orig_taz, r.dest_taz, t.waypoints, r.od_route_index;
+            WHERE r.waypoints = t.waypoints
+            ORDER BY t.waypoints, r.orig_taz, r.dest_taz, r.od_route_index;
             """
-            cursor.execute(sql_query, {'num_routes':self.NUM_ROUTES_PER_OD, 'density':self.WAYPOINT_DENSITY})
+            cursor.execute(sql_query, self.parameter_dictionary)
             return np.squeeze(np.array([row for row in cursor]))
 
     def f_generation_sql(self):
@@ -79,12 +58,11 @@ class GenerateSuperMatrix:
             join experiment2_waypoint_od_bins w
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             where r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
-            GROUP BY r.orig_taz, r.dest_taz, w.waypoints
-            ORDER BY r.orig_taz, r.dest_taz, w.waypoints
+            GROUP BY w.waypoints
+            ORDER BY w.waypoints
             """
-            cursor.execute(sql_query, {'num_routes':self.NUM_ROUTES_PER_OD, 'density':self.WAYPOINT_DENSITY})
+            cursor.execute(sql_query, self.parameter_dictionary)
             return np.squeeze(np.array([row for row in cursor]))
-
 
     def U_generation_sql(self):
         with server_side_cursors(connection):
@@ -96,12 +74,12 @@ class GenerateSuperMatrix:
             join experiment2_waypoint_od_bins w
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
-            GROUP BY r.orig_taz, r.dest_taz, w.waypoints
-            ORDER BY r.orig_taz, r.dest_taz, w.waypoints
+            GROUP BY w.waypoints
+            ORDER BY w.waypoints
             """
-            cursor.execute(sql_query, {'num_routes':self.NUM_ROUTES_PER_OD, 'density':self.WAYPOINT_DENSITY})
+            cursor.execute(sql_query, self.parameter_dictionary)
             block_sizes = np.squeeze(np.array([row for row in cursor]))
-        return GenerateSuperMatrix.block_sizes_to_U(block_sizes)
+        return WaypointMatrixGenerator.block_sizes_to_U(block_sizes)
 
     @staticmethod
     def block_sizes_to_U(block_sizes):
@@ -113,7 +91,7 @@ class GenerateSuperMatrix:
                 for j in range(i-1):
                     blocks.append(0)
         I = np.cumsum(blocks)-1
-        print(total)
+
         J = np.array(range(total))
         V = np.ones(total)
         return sps.csr_matrix((V,(I,J)))
@@ -123,27 +101,31 @@ class GenerateSuperMatrix:
             cursor = connection.cursor()
 
             sql_query = """
-            SELECT r.orig_taz AS orig, r.dest_taz AS dest, r.od_route_index, r.links
+            SELECT r.orig_taz AS orig, r.dest_taz AS dest, r.od_route_index
             from experiment2_routes r
             join experiment2_waypoint_od_bins w
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
             ORDER BY r.orig_taz, r.dest_taz, w.waypoints, r.od_route_index
             """
-            cursor.execute(sql_query, {'num_routes':self.NUM_ROUTES_PER_OD, 'density':self.WAYPOINT_DENSITY})
+            cursor.execute(sql_query,self.parameter_dictionary)
             indices = [row for row in cursor]
         I,J,V = [],[],[]
-        for i,(o,d,r, links) in enumerate(indices):
-            route_to_links = [self.map_links_to_index[link] for link in links]
+        for i,(o,d,r) in enumerate(indices):
+            route_to_links = self.phi[(o,d)][r]
 
-            assert(len(filter(lambda x: x==None, route_to_links)) == 0)
+            len1 = len(route_to_links)
+            route_to_links = list(filter(lambda x: x!=None, route_to_links))
+            len2 = len(route_to_links)
+            if len1 != len2:
+                print('filtered none values')
 
             size = len(route_to_links)
             I.extend(route_to_links)
             J.extend([i]*size)
             V.extend([1]*size)
-        print (len(indices))
-        return sps.csr_matrix((V,(I,J)),shape=(GenerateSuperMatrix.total_links(),len(indices)))
+
+        return sps.csr_matrix((V,(I,J)),shape=(1033,len(indices)))
 
     @staticmethod
     def set_diff(A,B):
@@ -154,12 +136,7 @@ class GenerateSuperMatrix:
         f = self.f_generation_sql()
         x = self.x_generation_sql()
 
-
         assert(np.sum(U.dot(x)) == U.shape[0])
-
-        print(U.shape)
-        print(f.shape)
-        print(x.shape)
 
         f = U.T.dot(f)
         size = f.shape[0]
@@ -168,14 +145,10 @@ class GenerateSuperMatrix:
         sub_phi = self.A_generation_sql()
         A = sub_phi.dot(F)
         b = A.dot(x)
-        #control_matrices = sio.loadmat(open(c.DATA_DIR + '/experiment_matrices/experiment2_control_matrices_routes_2000.mat'))
-        #b = control_matrices['b']
-        print(A.shape)
-        print(b.shape)
-        print(np.sum(b))
-        OUTFILE = "experiment2_total_link_matrices_routes_{0}.mat".format(self.NUM_ROUTES_PER_OD)
-        directory = self.EXPERIMENT_MATRICES_DIR
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        sio.savemat('%s/%s' % (directory, OUTFILE),
-                {'A':A, 'U':U, 'x':x, 'b':b, 'f':f})
+        self.matrices = {'A':A, 'U':U, 'x':x, 'b':b, 'f':f}
+        return self.matrices
+
+    def save_matrices(self, filename):
+        if (self.matrices == None):
+            self.generate_matrices()
+        sio.savemat(filename, self.matrices)

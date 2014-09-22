@@ -52,15 +52,3 @@ class PhiGenerator:
 def phi_generation_sql():
     pg = PhiGenerator(config.NUM_ROUTES_PER_OD)
     return pg.phi_generation_sql()
-
-# def generate_and_pickle_phi():
-#     selected_origin_id = str(time.time())
-#     metadata = {
-#       'id': selected_origin_id,
-#       'N_TAZ': 0,
-#       'N_TAZ_CONDENSED': 0,
-#       'FUZZY_DIST': 10
-#     }
-#     pickle.dump({'phi':phi_generation_sql(1), 'metadata':metadata},
-#             open('%s/phi_condensed%s_db.pickle' % (c.DATA_DIR,
-#                 selected_origin_id), 'w'))
