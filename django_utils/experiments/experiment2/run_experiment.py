@@ -37,9 +37,9 @@ def setup_db():
     rl.load()
     print ("load waypoints")
     lw.import_waypoints()
-    os.system("psql -U megacell -d geodjango -f /home/lei/traffic/phi-estimation/django_utils/waypoints/set_waypoint_voronoi.sql")
+    os.system("psql -U megacell -d geodjango -f waypoints/set_waypoint_voronoi.sql")
     print("create waypoint bins")
-    os.system("psql -U megacell -d geodjango -f /home/lei/traffic/phi-estimation/django_utils/experiments/experiment2/database_setup/create_od_waypoint_view.sql")
+    os.system("psql -U megacell -d geodjango -f experiments/experiment2/database_setup/create_od_waypoint_view.sql")
 
 def ensure_directory(path):
     if not os.path.exists(path):
