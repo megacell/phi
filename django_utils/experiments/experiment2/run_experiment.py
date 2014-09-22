@@ -5,7 +5,7 @@ import experiment2_control as e2_control
 import experiment2_waypoints as e2_waypoints
 import os
 import django_utils.config as config
-from django_utils.orm import load as lw
+from orm import load as lw
 import generate_super_matrix as sm
 
 def create_experiment2():
