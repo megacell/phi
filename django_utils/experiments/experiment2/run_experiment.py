@@ -39,6 +39,7 @@ def setup_db():
     rl.load()
     print ("load waypoints")
     lw.import_waypoints()
+    os.system("psql -U megacell -d geodjango -r waypoints/voronoi_python.sql")
     os.system("psql -U megacell -d geodjango -f waypoints/set_waypoint_voronoi.sql")
     print("create waypoint bins")
     os.system("psql -U megacell -d geodjango -f experiments/experiment2/database_setup/create_od_waypoint_view.sql")

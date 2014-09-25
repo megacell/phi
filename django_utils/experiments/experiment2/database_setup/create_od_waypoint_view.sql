@@ -1,6 +1,6 @@
 DROP TABLE IF EXISTS waypoint_density CASCADE;
 CREATE TABLE waypoint_density (density integer);
-INSERT INTO waypoint_density SELECT w.density_id FROM orm_waypoint w GROUP BY w.density_id limit 2;
+INSERT INTO waypoint_density SELECT w.density_id FROM orm_waypoint w GROUP BY w.density_id;
 
 DROP MATERIALIZED VIEW IF EXISTS experiment2_waypoint_od_bins;
 DROP TABLE IF EXISTS experiment2_waypoint_od_bins;
