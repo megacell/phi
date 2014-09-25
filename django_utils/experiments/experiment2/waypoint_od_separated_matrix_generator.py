@@ -5,14 +5,18 @@ import scipy.sparse as sps
 from django.db import connection
 
 from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
-# groups by ods and waypoints (this is a combined routing
-class WaypointODMatrixGenerator:
+
+import waypoint_matrix_generator as wm
+
+# groups by waypoints only
+class WaypointMatrixGenerator:
     def __init__(self, phi, num_routes, waypoint_density):
         self.num_routes = num_routes
         self.waypoint_density = waypoint_density
         self.parameter_dictionary = {'num_routes':self.num_routes, 'density':self.waypoint_density}
         self.phi = phi
         self.matrices = None
+        self.wm_generator = wm.WaypointMatrixGenerator
 
     def x_generation_sql(self):
         with server_side_cursors(connection):
@@ -31,19 +35,19 @@ class WaypointODMatrixGenerator:
                 join experiment2_waypoint_od_bins w
                 on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
                 WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
-                ORDER BY r.orig_taz, r.dest_taz, w.waypoints
+                ORDER BY r.orig_taz, r.dest_taz, w.waypoints, r.od_route_index
             ) r,
             (
-                SELECT sum(r.flow_count) as total, r.orig_taz as orig_taz, r.dest_taz as dest_taz, w.waypoints as waypoints
+                SELECT sum(r.flow_count) as total, w.waypoints as waypoints
                 FROM experiment2_routes r
                 JOIN experiment2_waypoint_od_bins w
                 on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
                 WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
-                GROUP BY r.orig_taz, r.dest_taz, w.waypoints
-                ORDER BY r.orig_taz, r.dest_taz, w.waypoints
+                GROUP BY w.waypoints
+                ORDER BY w.waypoints
             ) t
-            WHERE r.orig_taz = t.orig_taz AND r.dest_taz = t.dest_taz AND r.waypoints = t.waypoints
-            ORDER BY r.orig_taz, r.dest_taz, t.waypoints, r.od_route_index;
+            WHERE r.waypoints = t.waypoints
+            ORDER BY t.waypoints, r.orig_taz, r.dest_taz, r.od_route_index;
             """
             cursor.execute(sql_query, self.parameter_dictionary)
             return np.squeeze(np.array([row for row in cursor]))
@@ -58,8 +62,8 @@ class WaypointODMatrixGenerator:
             join experiment2_waypoint_od_bins w
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             where r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
-            GROUP BY r.orig_taz, r.dest_taz, w.waypoints
-            ORDER BY r.orig_taz, r.dest_taz, w.waypoints
+            GROUP BY w.waypoints
+            ORDER BY w.waypoints
             """
             cursor.execute(sql_query, self.parameter_dictionary)
             return np.squeeze(np.array([row for row in cursor]))
@@ -74,12 +78,12 @@ class WaypointODMatrixGenerator:
             join experiment2_waypoint_od_bins w
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
-            GROUP BY r.orig_taz, r.dest_taz, w.waypoints
-            ORDER BY r.orig_taz, r.dest_taz, w.waypoints
+            GROUP BY w.waypoints
+            ORDER BY w.waypoints
             """
             cursor.execute(sql_query, self.parameter_dictionary)
             block_sizes = np.squeeze(np.array([row for row in cursor]))
-        return WaypointODMatrixGenerator.block_sizes_to_U(block_sizes)
+        return WaypointMatrixGenerator.block_sizes_to_U(block_sizes)
 
     @staticmethod
     def block_sizes_to_U(block_sizes):
@@ -127,10 +131,6 @@ class WaypointODMatrixGenerator:
 
         return sps.csr_matrix((V,(I,J)),shape=(1033,len(indices)))
 
-    @staticmethod
-    def set_diff(A,B):
-        return np.array(list(set(A).difference(set(B))))
-
     def generate_matrices(self):
         U = self.U_generation_sql()
         f = self.f_generation_sql()
@@ -145,7 +145,7 @@ class WaypointODMatrixGenerator:
         sub_phi = self.A_generation_sql()
         A = sub_phi.dot(F)
         b = A.dot(x)
-
+        print(b.shape)
         self.matrices = {'A':A, 'U':U, 'x':x, 'b':b, 'f':f}
         return self.matrices
 

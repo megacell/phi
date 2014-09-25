@@ -7,7 +7,9 @@ import waypoint_matrix_generator as waypoints
 import os
 import django_utils.config as config
 from orm import load as lw
-import generate_super_matrix as sm
+import all_links_matrix_generator as sm
+import generate_phi as gp
+import pickle
 
 def create_experiment2():
     experiment_name = 'e2'
@@ -20,7 +22,7 @@ def create_experiment2():
 
 def import_experiment2_sensors(description):
     experiment = Experiment.objects.get(description=description)
-    sensors = Sensor.objects.filter(road_type='Freeway').order_by('pems_id')
+    sensors = Sensor.objects.order_by('pems_id')
     ExperimentSensor.objects.filter(experiment=experiment).delete()
     for idx, s in enumerate(sensors):
         es = ExperimentSensor(sensor=s, value=0, experiment=experiment, vector_index=idx)
@@ -56,9 +58,9 @@ def matrix_generator(phi, routes, waypoint_density):
     else:
         return waypoints.WaypointMatrixGenerator(phi, routes, waypoint_density)
 
-def get_phi():
+def get_phi(regenerate=False):
     filename = "{0}/{1}/phi.pkl".format(config.DATA_DIR, config.EXPERIMENT_MATRICES_DIR)
-    if os.path.isfile(filename):
+    if os.path.isfile(filename) and not regenerate:
         return pickle.load(open(filename))
     else:
         phi = gp.PhiGenerator(2000).phi_generation_sql()
@@ -68,7 +70,7 @@ def get_phi():
 
 def generate_experiment_matrices():
     phi = get_phi()
-    for d in config.WAYPOINT_DENSITIES:
+    for d in [0,238,1900]:#config.WAYPOINT_DENSITIES:
         for r in [50, 40, 30, 20, 10, 3]:
             print("Generating Matrix Set (waypoints: {0}, routes: {1})".format(d,r))
             matrix_generator(phi, r, d).save_matrices(waypoint_matrix_file_name(r, d))
@@ -89,6 +91,7 @@ def generate_all_link_matrices():
             sm.AllLinksMatrixGenerator(r, d).save_matrices(all_link_matrix_file_name(r, d))
 
 if __name__ == "__main__":
-    #setup_db()
+    #create_experiment2()
+    #get_phi(True)
     generate_experiment_matrices()
     #generate_all_link_matrices()
