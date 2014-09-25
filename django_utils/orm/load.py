@@ -27,7 +27,7 @@ THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = config.DATA_DIR
 data_prefix = "%s" % DATA_PATH #TODO(syadlowsky): make these consistent
 
-origin_shp = os.path.abspath('%s/ods.shp' % DATA_PATH)
+origin_shp = os.path.abspath('%s/origin/ods.shp' % DATA_PATH)
 
 def load_origins(verbose=True):
     lm = LayerMapping(Origin, origin_shp, models.origin_mapping,
@@ -93,7 +93,7 @@ def _save_sensor(params):
 
 def import_sensors(verbose=True):
     Sensor.objects.all().delete()
-    for row in csv.DictReader(open("{0}/sensors.csv".format(DATA_PATH))):
+    for row in csv.DictReader(open("{0}/sensors/sensors.csv".format(DATA_PATH))):
         row = {k: v.strip() for k, v in row.iteritems() if v.strip()}
         params = _remap_column_names(row)
         params['road_type']='Freeway'

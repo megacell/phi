@@ -40,7 +40,7 @@ class KMZSensorFileReader:
 
 def getArterialSensors():
     THIS_DIR = os.path.dirname(os.path.realpath(__file__))
-    path ='%s/../../../datasets/Phi/ArterialSensors-I210_data_map.kmz' % THIS_DIR
+    path ='%s/../../../datasets/Phi/sensors/ArterialSensors-I210_data_map.kmz' % THIS_DIR
     with ZipFile(path,'r') as file:
         namelist = file.namelist()
         if namelist:
