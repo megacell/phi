@@ -1,7 +1,7 @@
 import os
 from zipfile import ZipFile
 import xml.etree.ElementTree as ET
-
+import django_utils.config as config
 class KMZSensorFileReader:
     def __init__(self, rawXML):
         self.document_root = ET.fromstring(rawXML)
@@ -39,8 +39,8 @@ class KMZSensorFileReader:
         return self._enumeratesensors(self.document_root)
 
 def getArterialSensors():
-    THIS_DIR = os.path.dirname(os.path.realpath(__file__))
-    path ='%s/../../../datasets/Phi/ArterialSensors-I210_data_map.kmz' % THIS_DIR
+
+    path = config.DATA_DIR + '\sensors\ArterialSensors-I210_data_map.kmz'
     with ZipFile(path,'r') as file:
         namelist = file.namelist()
         if namelist:

@@ -6,6 +6,7 @@ from django.db import connection
 
 from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
 
+# groups by waypoints only
 class WaypointMatrixGenerator:
     def __init__(self, phi, num_routes, waypoint_density):
         self.num_routes = num_routes
@@ -106,7 +107,7 @@ class WaypointMatrixGenerator:
             join experiment2_waypoint_od_bins w
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
-            ORDER BY r.orig_taz, r.dest_taz, w.waypoints, r.od_route_index
+            ORDER BY w.waypoints, r.orig_taz, r.dest_taz, r.od_route_index
             """
             cursor.execute(sql_query,self.parameter_dictionary)
             indices = [row for row in cursor]
@@ -145,6 +146,7 @@ class WaypointMatrixGenerator:
         sub_phi = self.A_generation_sql()
         A = sub_phi.dot(F)
         b = A.dot(x)
+
         self.matrices = {'A':A, 'U':U, 'x':x, 'b':b, 'f':f}
         return self.matrices
 

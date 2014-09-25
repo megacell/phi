@@ -10,7 +10,7 @@ WAYPOINT_DENSITIES = [3800,3325,2850,2375,1900,1425,950,713,475,238,0]
 canonical_projection = 4326
 google_projection = 3857 #900913 # alternatively 3857
 EPSG32611 = 32611
-PLOT_DIR = '<PATH_TO_OUTPUT_PLOT_DIR>plots' # FIXME replace with your plot dir
+PLOT_DIR = DATA_DIR+'/plots' #your plot dir
 
 NUM_ROUTES_PER_OD = 3
 SIMILARITY_FACTOR = .8

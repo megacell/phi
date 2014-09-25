@@ -1,4 +1,3 @@
-__author__ = 'lei'
 import numpy as np
 import scipy.io as sio
 import scipy.sparse as sps
@@ -8,7 +7,6 @@ from django.db import connection
 from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
 from collections import defaultdict
 import os
-
 
 class AllLinksMatrixGenerator:
     def __init__(self, num_routes, waypoint_density):

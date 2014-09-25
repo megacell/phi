@@ -27,7 +27,7 @@ class ODMatrixGenerator:
                 ORDER BY orig_taz, dest_taz
             ) t
             WHERE r.orig_taz = t.orig_taz AND r.dest_taz = t.dest_taz AND r.od_route_index < %(num_routes)s
-            ORDER BY r.orig_taz, r.dest_taz, r.od_route_index, r.flow_count
+            ORDER BY r.orig_taz, r.dest_taz, r.od_route_index
             """
             cursor.execute(sql_query, {'num_routes':self.num_routes})
             return np.squeeze(np.array([row for row in cursor]))
@@ -120,6 +120,7 @@ class ODMatrixGenerator:
         sub_phi = self.A_generation_sql()
         A = sub_phi.dot(F)
         b = A.dot(x)
+
         self.matrices = {'A':A, 'U':U, 'x':x, 'b':b, 'f':f}
 
         return self.matrices
