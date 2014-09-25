@@ -39,7 +39,7 @@ class KMZSensorFileReader:
         return self._enumeratesensors(self.document_root)
 
 def getArterialSensors():
-    path = config.DATA_DIR + '\sensors\ArterialSensors-I210_data_map.kmz'
+    path = config.DATA_DIR + '/sensors/ArterialSensors-I210_data_map.kmz'
     with ZipFile(path,'r') as file:
         namelist = file.namelist()
         if namelist:

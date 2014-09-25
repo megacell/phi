@@ -48,7 +48,7 @@ class TrajectoryLoader:
 def load():
     import timeit
     tic = timeit.default_timer()
-    with open(config.DATA_DIR + '/OD_500k.csv') as odcsv:
+    with open(config.DATA_DIR + 'trajectories/OD_500k.csv') as odcsv:
         loader = TrajectoryLoader(connection, odcsv)
         loader.load()
     toc = timeit.default_timer()
