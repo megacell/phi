@@ -3,3 +3,4 @@ requests
 pico
 south
 psycopg2
+pyshp

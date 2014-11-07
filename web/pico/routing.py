@@ -23,6 +23,8 @@ from orm import models
 #### END HACK
 
 DATA_PATH = '/home/ubuntu/datasets'
+canonical_projection = 4326
+google_projection = 900913 # alternatively 3857
 FUZZY_DIST = 10
 NUM_WORST_ROUTES = 10
 
@@ -46,10 +48,22 @@ for index in lookup:
 #
 points = pickle.load(open("{0}/Phi/sensors.pickle".format(DATA_PATH)))
 
+def remap_sensor_data(sensor):
+    d = dict()
+    d['Name'] = sensor.name
+    d['Latitude'] = sensor.location.y
+    d['Longitude'] = sensor.location.x
+    d['Road Type'] = sensor.road_type
+    return d
+
+def get_sensor_data():
+    # it is faster to do this serialization than to let pico handle serializing this sized object
+    return json.dumps(list(map(remap_sensor_data, models.Sensor.objects.all())), separators=(',',':'))
+
 def build_point_dictionary(point):
   x,y = point.x, point.y
-  point.set_srid(4326)
-  point.transform(900913)
+  point.set_srid(canonical_projection)
+  point.transform(google_projection)
   return {
     'map': [x, y],
     'compare': point
@@ -69,8 +83,8 @@ def tower_locations():
     return tower_locations
 
 def sensors(point_list):
-    route = LineString([[point['lng'], point['lat']] for point in point_list], srid=4326)
-    route.transform(900913)
+    route = LineString([[point['lng'], point['lat']] for point in point_list], srid=canonical_projection)
+    route.transform(google_projection)
     sensor_map = []
     for sensor_ind, sensor in enumerate(sensors_transformed):
       if sensor['compare'].distance(route) < FUZZY_DIST:

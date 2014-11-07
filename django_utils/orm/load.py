@@ -14,16 +14,20 @@ from models import Sensor, Origin, Route, Waypoint, MatrixTaz, ExperimentRoute, 
 from lib.console_progress import ConsoleProgress
 from lib import google_lines
 import models
-
+import kmzsensorfilereader as kmz
+import django_utils.config as config
 logging.basicConfig(level=logging.DEBUG)
+
+canonical_projection = 4326
+google_projection = 3857#900913 # alternatively 3857
 
 N_TAZ = 321
 # FIXME poor practice
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
-DATA_PATH = '%s/../../../datasets' % THIS_DIR
-data_prefix = "%s/Phi" % DATA_PATH #TODO(syadlowsky): make these consistent
+DATA_PATH = config.DATA_DIR
+data_prefix = "%s" % DATA_PATH #TODO(syadlowsky): make these consistent
 
-origin_shp = os.path.abspath('%s/Phi/ods.shp' % DATA_PATH)
+origin_shp = os.path.abspath('%s/origin/ods.shp' % DATA_PATH)
 
 def load_origins(verbose=True):
     lm = LayerMapping(Origin, origin_shp, models.origin_mapping,
@@ -32,8 +36,8 @@ def load_origins(verbose=True):
     lm.save(strict=True, verbose=verbose)
     for o in Origin.objects.all():
         o.geom_dist = o.geom.clone()
-        o.geom_dist.srid = 4326
-        o.geom_dist.transform(900913)
+        o.geom_dist.srid = canonical_projection
+        o.geom_dist.transform(google_projection)
         o.save()
         logging.info("Saved origin with distance.")
 
@@ -72,22 +76,35 @@ sensor_mapping = {
 }
 sensor_mapping_reverse = {v:k for k,v in sensor_mapping.iteritems()}
 
+def _remap_column_names(row):
+    params = {sensor_mapping_reverse[k]: v for k, v in row.iteritems() if sensor_mapping_reverse.has_key(k)}
+    params['location'] = Point(float(row['Longitude']), float(row['Latitude']), srid=canonical_projection)
+    params['location_dist'] = Point(float(row['Longitude']), float(row['Latitude']), srid=canonical_projection)
+    params['location_dist'].transform(google_projection)
+    return params
+
+def _save_sensor(params):
+    try:
+        sensor = Sensor(**params)
+        sensor.save()
+    except:
+        print params
+        raise
+
 def import_sensors(verbose=True):
-    for row in csv.DictReader(open("{0}/Phi/sensors.csv".format(DATA_PATH))):
+    Sensor.objects.all().delete()
+    for row in csv.DictReader(open("{0}/sensors/sensors.csv".format(DATA_PATH))):
         row = {k: v.strip() for k, v in row.iteritems() if v.strip()}
-        params = {sensor_mapping_reverse[k]: v for k, v in row.iteritems() if sensor_mapping_reverse.has_key(k)}
-        params['location'] = Point(float(row['Longitude']), float(row['Latitude']), srid=4326)
-        params['location_dist'] = Point(float(row['Longitude']), float(row['Latitude']), srid=4326)
-        params['location_dist'].transform(900913)
-        try:
-            sensor = Sensor(**params)
-            sensor.save()
-        except:
-            print params
-            raise
+        params = _remap_column_names(row)
+        params['road_type']='Freeway'
+        _save_sensor(params)
+    for row in kmz.getArterialSensors():
+        params = _remap_column_names(row)
+        params['road_type']='Arterial'
+        _save_sensor(params)
 
 def import_lookup(verbose=True):
-    waypoints = pickle.load(open("{0}/Phi/lookup.pickle".format(DATA_PATH)))
+    waypoints = pickle.load(open("{0}/lookup.pickle".format(DATA_PATH)))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)
     for matrix_id, taz_id in waypoints.iteritems():
@@ -96,18 +113,25 @@ def import_lookup(verbose=True):
     transaction.commit()
     transaction.set_autocommit(ac)
 
-
-def import_waypoints(verbose=True):
-    waypoints = pickle.load(open("{0}/Phi/waypoints-2000.pkl".format(DATA_PATH)))
+def load_waypoints_file(filepath, density_id):
+    waypoints = pickle.load(open("{0}/{1}".format(config.WAYPOINTS_DIRECTORY, filepath)))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)
     for category, locations in waypoints.iteritems():
         for location in locations:
-            pt = Point(tuple(location), srid=4326)
-            wp = Waypoint(location=pt, location_dist=pt.transform(900913, clone=True), category=category)
+            pt = Point(tuple(location), srid=canonical_projection)
+            wp = Waypoint(location=pt, location_dist=pt.transform(google_projection, clone=True), category=category, density_id=density_id)
             wp.save()
     transaction.commit()
     transaction.set_autocommit(ac)
+
+def import_waypoints(verbose=True):
+    Waypoint.objects.all().delete()
+    density = config.WAYPOINT_DENSITIES
+    files = ["waypoints-{0}.pkl".format(d) for d in density]
+    for f,d in zip(files,density):
+        load_waypoints_file(f, d)
+
 
 def find_route_by_origin_destination_route_index(o, d, idx):
     r = Route.objects.raw("SELECT r.* FROM orm_route r INNER JOIN orm_matrixtaz t ON r.origin_taz = t.taz_id INNER JOIN orm_matrixtaz s ON r.destination_taz = s.taz_id WHERE t.matrix_id = %s AND s.matrix_id = %s AND r.od_route_index = %s LIMIT 1;", (o, d, idx))
@@ -116,15 +140,15 @@ def find_route_by_origin_destination_route_index(o, d, idx):
 def import_experiment_sensors(description):
     """Assumes you have an experiment with that description"""
 # Load b vector from MAT file
-    route_split = sio.loadmat(open("{0}/Phi/route_assignment_matrices_ntt.mat".format(DATA_PATH)))
+    route_split = sio.loadmat(open("{0}/experiment_matrices/route_assignment_matrices_ntt.mat".format(DATA_PATH)))
     b = np.squeeze(np.asarray(route_split['b']))
     ac = transaction.get_autocommit()
     transaction.set_autocommit(False)
 # Find experiment
     experiment = Experiment.objects.get(description=description)
 # Load CSV, enumerate over lines
-    for idx, row in enumerate(csv.DictReader(open("{0}/Phi/sensors.csv".format(DATA_PATH)))):
-        sensor = Sensor.objects.get(pems_id=row['ID'])
+    for idx, row in enumerate(csv.DictReader(open("{0}/sensors.csv".format(DATA_PATH)))):
+        sensor = Sensor.objects.get(pems_id=row['ID'], road_type='Freeway')
         es = ExperimentSensor(sensor=sensor, value=b[idx], experiment=experiment, vector_index=idx)
         es.save()
 # For each line, find value in b, and then create the ExperimentSensor with that vector_index cross-checked by PEMS id
@@ -150,7 +174,7 @@ def import_experiment(filename, description):
     transaction.set_autocommit(ac)
 
 def import_experiment_data(description):
-    route_split = sio.loadmat(open("{0}/Phi/outputSmallData.mat".format(DATA_PATH)))
+    route_split = sio.loadmat(open("{0}/outputSmallData.mat".format(DATA_PATH)))
     b = np.squeeze(np.asarray(route_split['x_true']))
     sql = """
     UPDATE orm_experimentroute AS er SET
@@ -192,9 +216,9 @@ def import_routes():
         for route_index, route in enumerate(data['routes']):
             gpolyline = route['overview_polyline']['points']
             linestring = google_lines.decode_line(gpolyline)
-            linestring.set_srid(4326)
+            linestring.set_srid(canonical_projection)
             linestring_dist = linestring.clone()
-            linestring_dist.transform(900913)
+            linestring_dist.transform(google_projection)
             route_object = Route(geom=linestring, geom_dist=linestring_dist, \
                     summary=route['summary'], origin_taz=taz_lookup[o], \
                     destination_taz=taz_lookup[d], \
@@ -248,3 +272,9 @@ def import_experiment_from_agent_google_match():
         er.save()
     transaction.commit()
     transaction.set_autocommit(ac)
+def import_all():
+    import_sensors()
+    load_origins()
+    #import_lookup()
+    #import_routes()
+    import_waypoints()

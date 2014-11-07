@@ -13,6 +13,7 @@ be installed via pip):
 - [south](http://south.readthedocs.org/en/latest/installation.html#installation)
   _Make sure to configure properly_
 - [psycopg2](http://initd.org/psycopg/)
+- [pyshp]
 
 Installation via pip (confirmed for OSX 10.8):
 
@@ -30,6 +31,9 @@ Postgres **9.3**
 The database that we are slowly migrating towards is postgres. The installation
 instructions for this vary from system to system. If you find a good one for
 your system, link to it here.
+
+On top of install postgres, we will need to use some postgres specific fields.
+To access these fields, install [*postgresql-contrib*] with your package manager.
 
 We will also be using [*postgis*](http://postgis.net/) extensions for geometry
 support in postrges.  This has already been installed on the server. For me,
@@ -124,6 +128,8 @@ django-admin.py syncdb --settings=settings_geo
 django-admin.py migrate --settings=settings_geo
 ```
 
+<Add section here about permissions>
+
 Importing data (sensors, origins, routes, and waypoints)
 =======
 To start, make sure that the environment is set up properly. Replace BASE_DIR
@@ -149,9 +155,9 @@ Some of the commands will take a while to run, in particular importing routes.
 Exit the shell, and from the bash prompt in `django_utils` run (these may take
 a while too):
 ```bash
-psql -U <SUPERUSER> -d geodjango -f voronoi_python.sql
-psql -U megacell -d geodjango -f set_waypoint_voronoi.sql
-psql -U megacell -d geodjango -f create_od_waypoint_view.sql
+psql -U <SUPERUSER> -d geodjango -f waypoints/voronoi_python.sql
+psql -U megacell -d geodjango -f waypoints/set_waypoint_voronoi.sql
+psql -U megacell -d geodjango -f waypoints/create_od_waypoint_view.sql
 ```
 
 Loading the experiment(s)
