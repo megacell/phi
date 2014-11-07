@@ -11,7 +11,7 @@ from django.contrib.gis.geos import Point, LineString
 import os, sys
 
 import logging
-logging.basicConfig(filename='/home/steve/megacell/LA.log',level=logging.DEBUG)
+logging.basicConfig(filename='/home/ubuntu/LA.log',level=logging.DEBUG)
 
 #### HACK
 django_path = (os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../django_utils'))
@@ -22,29 +22,29 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings_geo")
 from orm import models
 #### END HACK
 
-DATA_PATH = '/home/steve/megacell/datasets'
+DATA_PATH = '/home/ubuntu/datasets'
 FUZZY_DIST = 10
 NUM_WORST_ROUTES = 10
 
-# sensor_data = sio.loadmat(open("{0}/Phi/sensor_fit.mat".format(DATA_PATH)))
-# lsqr = np.squeeze(np.asarray(sensor_data['lsqr_soln']))
-# true_sensor_value = np.squeeze(np.asarray(sensor_data['true']))
+sensor_data = sio.loadmat("{0}/Phi/sensor_fit.mat".format(DATA_PATH))
+lsqr = np.squeeze(np.asarray(sensor_data['lsqr_soln']))
+true_sensor_value = np.squeeze(np.asarray(sensor_data['true']))
 # 
-# back_map = pickle.load(open("{0}/Phi/od_back_map.pickle".format(DATA_PATH)))
-# condensed_map = defaultdict(list)
-# for k, v in back_map.iteritems():
-#     condensed_map[v].append(k)
+back_map = pickle.load(open("{0}/Phi/od_back_map_cathy.pickle".format(DATA_PATH)))
+condensed_map = defaultdict(list)
+for k, v in back_map.iteritems():
+    condensed_map[v].append(k)
 
 route_split = sio.loadmat(open("{0}/Phi/outputSmallData.mat".format(DATA_PATH)))
 route_split['x'] = np.squeeze(np.asarray(route_split['xLBFGS']))
 route_split['x_true'] = np.squeeze(np.asarray(route_split['x_true']))
 
-#lookup = pickle.load(open("{0}/Phi/lookup.pickle".format(DATA_PATH)))
-#rlookup = {}
-#for index in lookup:
-#  rlookup[lookup[index]] = index
+lookup = pickle.load(open("{0}/Phi/lookup.pickle".format(DATA_PATH)))
+rlookup = {}
+for index in lookup:
+  rlookup[lookup[index]] = index
 #
-#points = pickle.load(open("{0}/Phi/sensors.pickle".format(DATA_PATH)))
+points = pickle.load(open("{0}/Phi/sensors.pickle".format(DATA_PATH)))
 
 def build_point_dictionary(point):
   x,y = point.x, point.y
@@ -54,7 +54,7 @@ def build_point_dictionary(point):
     'map': [x, y],
     'compare': point
   }
-# sensors_transformed = [build_point_dictionary(p) for p in points]
+sensors_transformed = [build_point_dictionary(p) for p in points]
 
 category_to_color = {
     'uniform_rand_bbox' : 'purple',
