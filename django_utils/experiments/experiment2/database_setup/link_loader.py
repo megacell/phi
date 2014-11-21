@@ -1,14 +1,19 @@
-from django.contrib.gis.geos import LineString
-import shapefile
 from django_utils import config as config
+from django.contrib.gis.geos import LineString
 from django.db import connection
+
 import cStringIO
+import shapefile
 
 class LinkLoader:
 
-    def __init__(self, connection, shapefile_path):
+    def __init__(self, connection, sf):
         self.connection = connection
-        self.shapefile_reader = shapefile.Reader(shapefile_path)
+        if isinstance(sf, basestring):
+            self.shapefile_reader = shapefile.Reader(sf)
+        else:
+            self.shapefile_reader = sf
+        print self.shapefile_reader.fields
 
     def _read_geos(self):
         irecord = self.shapefile_reader.iterRecords()
@@ -19,10 +24,12 @@ class LinkLoader:
 
         for i in range(self.shapefile_reader.numRecords):
             record = irecord.next()
-            points = [tuple(x) for x in ishapes.next().points]
+            shape = ishapes.next()
+
+            points = [tuple(x) for x in shape.points]
 
             id = int(record[0])
-
+            orig_id = int(record[7])
             line = LineString(points)
             line.set_srid(config.EPSG32611)
 
@@ -32,20 +39,21 @@ class LinkLoader:
             googleprojection = line.clone()
             googleprojection.transform(config.google_projection)
 
-            id_to_geometry.append('\t'.join([str(i), str(id), defaultprojection.ewkt, googleprojection.ewkt, line.ewkt]))
+            id_to_geometry.append('\t'.join([str(i), str(id), defaultprojection.ewkt, googleprojection.ewkt, line.ewkt, str(orig_id)]))
 
         return '\n'.join(id_to_geometry)
 
     def load(self):
         cursor = self.connection.cursor()
         cursor.execute('''
-            DROP TABLE IF EXISTS link_geometry;
+            DROP TABLE IF EXISTS link_geometry CASCADE;
             CREATE TABLE link_geometry (
             link_index integer,
             link_id integer,
             geom geometry(LINESTRING, %s),
             geom_dist geometry(LINESTRING, %s),
-            geom_orig geometry(LINESTRING, %s)
+            geom_orig geometry(LINESTRING, %s),
+            orig_id integer
             );''',
             (config.canonical_projection,
             config.google_projection,
@@ -66,5 +74,5 @@ def load_LA_links():
     print (toc - tic)
 
 if __name__ == "__main__":
-    load_LA_links()
-
+    lg = LinkLoader(connection, config.DATA_DIR + '/LA_shps/links/LA_network_links_V2')
+    lg.load()

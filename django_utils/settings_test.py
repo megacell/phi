@@ -1,10 +1,13 @@
 DATABASES = {
         'default': {
             'ENGINE': 'phidb.db.backends.postgresql_psycopg2',
-            'NAME' : 'geodjango',
-            'USER' : 'megacell'
+            'NAME' : 'geodjango_test',
+            'USER' : 'megacell',
+            'TEST_NAME' : 'geodjango_test2'
             }
         }
+
+SOUTH_DATABASE_ADAPTERS = { 'default' : 'south.db.postgresql_psycopg2' }
 
 INSTALLED_APPS = (
         'django.contrib.auth',
@@ -16,7 +19,7 @@ INSTALLED_APPS = (
         'django.contrib.admin',
         'django.contrib.gis',
         'phidb',
-        'orm'
+        'orm',
         )
 
 MIDDLEWARE_CLASSES = (

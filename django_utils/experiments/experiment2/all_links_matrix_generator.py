@@ -63,7 +63,7 @@ class AllLinksMatrixGenerator:
                 ORDER BY r.orig_taz, r.dest_taz, w.waypoints
             ) t
             WHERE r.orig_taz = t.orig_taz AND r.dest_taz = t.dest_taz AND r.waypoints = t.waypoints
-            ORDER BY r.orig_taz, r.dest_taz, t.waypoints, r.od_route_index;
+            ORDER BY t.waypoints, r.orig_taz, r.dest_taz, r.od_route_index;
             """
             cursor.execute(sql_query, self.parameter_dictionary)
             return np.squeeze(np.array([row for row in cursor]))
@@ -79,7 +79,7 @@ class AllLinksMatrixGenerator:
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             where r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
             GROUP BY r.orig_taz, r.dest_taz, w.waypoints
-            ORDER BY r.orig_taz, r.dest_taz, w.waypoints
+            ORDER BY w.waypoints, r.orig_taz, r.dest_taz
             """
             cursor.execute(sql_query, self.parameter_dictionary)
             return np.squeeze(np.array([row for row in cursor]))
@@ -96,7 +96,7 @@ class AllLinksMatrixGenerator:
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
             GROUP BY r.orig_taz, r.dest_taz, w.waypoints
-            ORDER BY r.orig_taz, r.dest_taz, w.waypoints
+            ORDER BY  w.waypoints, r.orig_taz, r.dest_taz
             """
             cursor.execute(sql_query, self.parameter_dictionary)
             block_sizes = np.squeeze(np.array([row for row in cursor]))
@@ -126,7 +126,7 @@ class AllLinksMatrixGenerator:
             join experiment2_waypoint_od_bins w
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
-            ORDER BY r.orig_taz, r.dest_taz, w.waypoints, r.od_route_index
+            ORDER BY w.waypoints, r.orig_taz, r.dest_taz, r.od_route_index
             """
             cursor.execute(sql_query, self.parameter_dictionary)
             indices = [row for row in cursor]
