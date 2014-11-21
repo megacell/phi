@@ -27,7 +27,7 @@ THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 DATA_PATH = config.DATA_DIR
 data_prefix = "%s" % DATA_PATH #TODO(syadlowsky): make these consistent
 
-origin_shp = os.path.abspath('%s/ods.shp' % DATA_PATH)
+origin_shp = os.path.abspath('%s/origin/ods.shp' % DATA_PATH)
 
 def load_origins(verbose=True):
     lm = LayerMapping(Origin, origin_shp, models.origin_mapping,
