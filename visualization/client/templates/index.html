@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="visApp">
+<head>
+    <meta charset="UTF-8">
+    <title>Traffic Visualization</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css" rel="stylesheet">
+    {% load staticfiles %}
+    <link href="{% static "app/css/app.css" %}" rel="stylesheet">
+    <link href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" rel="stylesheet"/>
+
+    <script src="//code.jquery.com/jquery.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular-route.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular-resource.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular-cookies.js"></script>
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+    <script src="{% static "app/js/colorUtilities.js" %}"></script>
+    <script src="{% static "app/js/app.js" %}"></script>
+    <script src="{% static "app/js/controllers.js" %}"></script>
+    <script src="{% static "app/js/services.js" %}"></script>
+</head>
+<body>
+    <div class="container">
+        <div ng-view></div>
+    </div>
+</body>
+</html>
