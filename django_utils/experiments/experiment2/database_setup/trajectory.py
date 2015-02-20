@@ -1,14 +1,16 @@
 from django.contrib.gis.geos import LineString, MultiLineString, Point
 class Trajectory:
-    def __init__(self, id_sequence, od_taz, geometry_map, length_cache):
+    def __init__(self, id_sequence, od_taz, geometry_map, length_cache, travel_time = 0, travel_time_var = 0):
         self._id_sequence = id_sequence
         self._id_set = set(id_sequence)
         self.od_taz = od_taz
         self._length = -1
         self._geometry_map = geometry_map
-        self._start_point = self.get_start_point()
-        self._end_point = self.get_end_point()
+        #self._start_point = self.get_start_point()
+        #self._end_point = self.get_end_point()
         self._length_cache = length_cache
+        self.travel_time = travel_time
+        self.travel_time_var = travel_time_var
 
     def _trajectory_length(self, sequence):
         total = 0

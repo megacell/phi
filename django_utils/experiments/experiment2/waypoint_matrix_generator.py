@@ -5,9 +5,10 @@ import scipy.sparse as sps
 from django.db import connection
 
 from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
-
+from matrix_generator import MatrixGenerator
+from experimentmatrices import ExperimentMatrices
 # groups by waypoints only
-class WaypointMatrixGenerator:
+class WaypointMatrixGenerator(MatrixGenerator):
     def __init__(self, phi, num_routes, waypoint_density):
         self.num_routes = num_routes
         self.waypoint_density = waypoint_density
@@ -128,11 +129,29 @@ class WaypointMatrixGenerator:
 
         return sps.csr_matrix((V,(I,J)),shape=(1033,len(indices)))
 
+    def route_table_generation_sql(self):
+        with server_side_cursors(connection):
+            cursor = connection.cursor()
+
+            sql_query = """
+            SELECT r.orig_taz AS orig, r.dest_taz AS dest, r.od_route_index
+            from experiment2_routes r
+            join experiment2_waypoint_od_bins w
+            on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
+            WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
+            ORDER BY w.waypoints, r.orig_taz, r.dest_taz, r.od_route_index
+            """
+
+            cursor.execute(sql_query, self.parameter_dictionary)
+            routes = [r for r in cursor]
+            return routes
+
     @staticmethod
     def set_diff(A,B):
         return np.array(list(set(A).difference(set(B))))
 
     def generate_matrices(self):
+        route_table = self.route_table_generation_sql()
         U = self.U_generation_sql()
         f = self.f_generation_sql()
         x = self.x_generation_sql()
@@ -147,10 +166,7 @@ class WaypointMatrixGenerator:
         A = sub_phi.dot(F)
         b = A.dot(x)
 
-        self.matrices = {'A':A, 'U':U, 'x':x, 'b':b, 'f':f}
+        self.matrices = ExperimentMatrices(A, b, x, U, f, route_table)
         return self.matrices
 
-    def save_matrices(self, filename):
-        if (self.matrices == None):
-            self.generate_matrices()
-        sio.savemat(filename, self.matrices)
+

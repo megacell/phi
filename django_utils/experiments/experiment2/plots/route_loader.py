@@ -2,23 +2,21 @@ import csv
 import django_utils.config as config
 from django.contrib.gis.geos import LineString, GEOSGeometry
 from django.db import connection
-from trajectory import Trajectory
-from route_creator import RouteCreator
+from django_utils.experiments.experiment2.database_setup.trajectory import Trajectory
+from route_stats import RouteCreator
 from multiprocessing import Pool
 from itertools import chain
 import cStringIO
-from route import Route
+from django_utils.experiments.experiment2.database_setup.route import Route
 import timeit
 
 class RouteLoader:
-    def __init__(self, routecreator_factory, connection, route_table = 'experiment2_routes', link_id_filter = lambda x : x):
+    def __init__(self, routecreator_factory, connection):
         self.routecreator_factory = routecreator_factory
         self.connection = connection
         self.link_geom = dict()
         self.length_cache = dict()
         self.commute_direction = 0
-        self.link_id_filter = link_id_filter
-        self.route_table = route_table
 
     def import_link_geometry_table(self):
         cursor = self.connection.cursor()
@@ -41,18 +39,15 @@ class RouteLoader:
     def get_trajectories(self, o,d):
         cursor = self.connection.cursor()
         cursor.execute('''
-        SELECT link_ids
+        SELECT link_ids, travel_time(link_ids)
         FROM experiment2_trajectories
         WHERE orig_TAZ = %s AND dest_TAZ = %s
         AND commute_direction = %s;
         ''', (o, d, self.commute_direction))
 
         trajectories = list()
-        for link_ids in cursor:
-            filtered = self.link_id_filter(link_ids[0])
-            if len(filtered) == 0:
-                continue
-            t = Trajectory(filtered, (o,d), self.link_geom, self.length_cache)
+        for link_ids, travel_time in cursor:
+            t = Trajectory(link_ids, (o,d), self.link_geom, self.length_cache, travel_time)
             trajectories.append(t)
 
         return trajectories
@@ -63,29 +58,9 @@ class RouteLoader:
 
     @staticmethod
     def create_route_list(od_index, route):
-        original_geom = route._trajectory.convert_to_MultiLineString()
-        srid = original_geom.get_srid()
-#        original_geom.set_srid(config.EPSG32611)
-
-        geom_dist = original_geom.clone()
-        geom_dist.transform(config.google_projection)
-
-        geom = original_geom.clone()
-        geom.transform(config.canonical_projection)
-
         o, d = route.od_taz_id
 
-        start = route._trajectory.get_start_point().clone()
-        start.set_srid(srid)
-        start.transform(config.canonical_projection)
-
-        end = route._trajectory.get_end_point().clone()
-        end.set_srid(srid)
-        end.transform(config.canonical_projection)
-
-        links = '{'+','.join([str(r) for r in route._trajectory._id_sequence])+'}'
-
-        return '\t'.join([str(int(o)), str(int(d)), str(od_index), str(geom.hexewkb), str(geom_dist.hexewkb), str(start.hexewkb), str(end.hexewkb), str(route._agent_count), links])
+        return '\t'.join([str(int(o)), str(int(d)), str(od_index), str(route._agent_count), str(route.average), str(route.var)])
 
     def extract_routes_from_group(self, group):
         routecreator = self.routecreator_factory()
@@ -104,7 +79,7 @@ class RouteLoader:
 
         sio = cStringIO.StringIO(rows)
         cursor = connection.cursor()
-        cursor.copy_from(sio, self.route_table)
+        cursor.copy_from(sio, 'experiment2_route_stats')
         return routes
 
     def load_routes(self):
@@ -116,23 +91,19 @@ class RouteLoader:
 
         cursor = connection.cursor()
         cursor.execute('''
-        DROP TABLE IF EXISTS ''' + self.route_table + ''' CASCADE;
-        CREATE TABLE ''' + self.route_table + ''' (
+        DROP TABLE IF EXISTS experiment2_route_stats CASCADE;
+        CREATE TABLE experiment2_route_stats (
         orig_TAZ int,
         dest_TAZ int,
         od_route_index int,
-        geom geometry(MULTILINESTRING, %(c)s),
-        geom_dist geometry(MULTILINESTRING, %(g)s),
-        start_point geometry(POINT, %(c)s),
-        end_point geometry(POINT, %(c)s),
         flow_count int,
-        links int[]);
-        ''', {'c': config.canonical_projection, 'g': config.google_projection, 'name':self.route_table})
+        mean float,
+        var float);
+        ''')
 
         for g in slice(groups, 1000):
             routes = self.group_routes(g)
         print (len(routes))
-
 def slice(l, n):
     for i in xrange(0, len(l), n):
         yield l[i:i+n]
