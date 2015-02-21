@@ -5,7 +5,7 @@ import scipy.sparse as sps
 from django.db import connection
 
 from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
-
+from experimentmatrices import ExperimentMatrices
 class ODMatrixGenerator:
     def __init__(self, phi, num_routes):
         self.phi = phi
@@ -122,8 +122,7 @@ class ODMatrixGenerator:
         b = A.dot(x)
 
         self.matrices = {'A':A, 'U':U, 'x':x, 'b':b, 'f':f}
-
-        return self.matrices
+        return ExperimentMatrices(A, b, x, U, f, [])
 
     def save_matrices(self, filename):
         if (self.matrices == None):

@@ -7,6 +7,7 @@ from django.db import connection
 from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
 from matrix_generator import MatrixGenerator
 from experimentmatrices import ExperimentMatrices
+
 # groups by waypoints only
 class WaypointMatrixGenerator(MatrixGenerator):
     def __init__(self, phi, num_routes, waypoint_density):
@@ -116,11 +117,7 @@ class WaypointMatrixGenerator(MatrixGenerator):
         for i,(o,d,r) in enumerate(indices):
             route_to_links = self.phi[(o,d)][r]
 
-            len1 = len(route_to_links)
-            route_to_links = list(filter(lambda x: x!=None, route_to_links))
-            len2 = len(route_to_links)
-            if len1 != len2:
-                print('filtered none values')
+            #route_to_links = list(filter(lambda x: x!=None, route_to_links))
 
             size = len(route_to_links)
             I.extend(route_to_links)
@@ -168,5 +165,3 @@ class WaypointMatrixGenerator(MatrixGenerator):
 
         self.matrices = ExperimentMatrices(A, b, x, U, f, route_table)
         return self.matrices
-
-

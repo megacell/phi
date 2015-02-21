@@ -31,3 +31,21 @@ class Route(models.Model):
     id = models.IntegerField(primary_key=True)
     links = ArrayField(dbtype="int")
 
+class TAZ(models.Model):
+    id = models.IntegerField(primary_key=True)
+    geom = models.PolygonField(srid=config.EPSG4326)
+
+class Cell(models.Model):
+    id = models.IntegerField(primary_key=True)
+    geom = models.PolygonField(srid=config.EPSG4326)
+    location = models.PointField(srid=config.EPSG4326)
+
+class CellRouteMap(models.Model):
+    id = models.IntegerField(primary_key=True)
+    routes = ArrayField(dbtype="int")
+
+class LinkTable:
+    def __init__(self, link_id, links):
+        self.link_id = link_id
+
+        self.links = list(links)
