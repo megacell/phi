@@ -130,6 +130,8 @@ def import_waypoints(verbose=True):
     density = config.WAYPOINT_DENSITIES
     files = ["waypoints-{0}.pkl".format(d) for d in density]
     for f,d in zip(files,density):
+        if d == 0:
+            continue
         load_waypoints_file(f, d)
 
 

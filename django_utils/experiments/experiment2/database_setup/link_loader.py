@@ -13,9 +13,14 @@ class LinkLoader:
             self.shapefile_reader = shapefile.Reader(sf)
         else:
             self.shapefile_reader = sf
-        print self.shapefile_reader.fields
+        #print self.shapefile_reader.fields
 
     def _read_geos(self):
+        '''
+        Reads the geometries from the shapefile and dumps them into a string
+        :returns:the id and geometries of the links in a string
+        '''
+
         irecord = self.shapefile_reader.iterRecords()
         ishapes = self.shapefile_reader.iterShapes()
 
@@ -44,6 +49,11 @@ class LinkLoader:
         return '\n'.join(id_to_geometry)
 
     def load(self):
+        '''
+        Loads the geometries from the shape file into the link_geometry table.
+        This method will delete what ever is in the link_geometry and dependent tables and create a new one.
+        :return:
+        '''
         cursor = self.connection.cursor()
         cursor.execute('''
             DROP TABLE IF EXISTS link_geometry CASCADE;

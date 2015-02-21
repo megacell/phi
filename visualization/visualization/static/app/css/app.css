@@ -1,0 +1,22 @@
+#map {
+    height: 720px;
+}
+
+body {
+    background: #f0f0f0
+}
+
+.container {
+    background: white;
+    position: center;
+    z-index: 1;
+    padding: 0 0 0;//15px 40px 20px;
+    width: 1080px;
+    height: 720px;
+    border-top: 0;
+    box-shadow: 0 0 60px rgba(0,0,0,0.15);
+}
+
+.leaflet-container {
+    width: 100%;
+}
