@@ -9,7 +9,7 @@ from django_utils.phidb.db.backends.postgresql_psycopg2.base import *
 from collections import defaultdict
 
 import waypoint_matrix_generator as wm
-
+from experimentmatrices import ExperimentMatrices
 # groups by waypoints only
 class WaypointMatrixGenerator:
     def __init__(self, phi, num_routes, waypoint_density):
@@ -144,7 +144,8 @@ class WaypointMatrixGenerator:
     def generate_matrices(self):
         U = self.U_generation_sql()
         f = self.f_generation_sql()
-        self.x = x, route_index = self.x_generation_sql()
+        x, route_table = self.x_generation_sql()
+        self.x = x
 
         assert(np.sum(U.dot(x)) == U.shape[0])
 
@@ -160,11 +161,12 @@ class WaypointMatrixGenerator:
         D = self.D_generation_sql()
 
         D = D.dot(F)
-        A = sps.vstack((A,D))
+        A = sps.vstack((A, D))
         b = np.hstack((b, E))
         print np.sum(np.abs(D*x-E))
         self.matrices = {'A':A, 'U':U, 'x':x, 'b':b, 'f':f}
-        return self.matrices
+        matrices = ExperimentMatrices(A, b, x, U, f, route_table)
+        return matrices
 
     def save_matrices(self, filename):
         if (self.matrices == None):
@@ -180,6 +182,8 @@ class WaypointMatrixGenerator:
             sql_query = """
             SELECT sum(flow_count)
             FROM experiment2_routes
+            join experiment2_waypoint_od_bins w
+            on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
             WHERE od_route_index < %(num_routes)s
             GROUP BY orig_taz, dest_taz
             ORDER BY orig_taz, dest_taz

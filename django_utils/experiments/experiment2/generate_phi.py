@@ -35,7 +35,7 @@ class PhiGenerator:
             array(
               SELECT (SELECT vector_index FROM orm_experimentsensor es WHERE es.sensor_id = s.id LIMIT 1)
               FROM orm_sensor s
-              WHERE ST_Distance(r.geom_dist, s.location_dist) < 10 AND s.road_type ='Freeway'
+              WHERE s.road_type = 'Freeway' AND ST_Distance(r.geom_dist, s.location_dist) < 10
             ) AS sensors
             FROM experiment2_routes r
             WHERE r.od_route_index < %(num_routes)s
