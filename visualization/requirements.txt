@@ -1,0 +1,5 @@
+django
+djangorestframework
+djangorestframework-gis
+djorm-pgarry
+djorm-ext-expressions

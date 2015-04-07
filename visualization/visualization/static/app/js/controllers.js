@@ -37,7 +37,7 @@ mapControllers.controller('LinkCtrl', ['$scope', '$q', 'Links', 'LinkFlows',
             });
     }]);
 
-function HoverFilter(links, linkLinkMap) {
+function HoverFilter(links, linkLinkMap, flows, colormap) {
     this.allLinks = new Set(links);
     this.linkSet = this.allLinks;
     this.layers = {};
@@ -52,24 +52,29 @@ function HoverFilter(links, linkLinkMap) {
     this.onUnhover = function() {
             this.clear = true;
             for(var i in this.layers){
-                this.layers[i].setStyle({"color": "green", "weight" : 2});
+                this.layers[i].setStyle({"color": "blue", "weight" : 2});
             }
         };
 
     var t = this;
     this.onHover = function(linkId) {
-            if (!t.clear){
-                t.onUnhover();
+        if (!t.clear){
+            t.onUnhover();
+        }
+        linkLinkMap.get(linkId).then( function(linkSet) {
+            t.clear = false;
+            linkSet = new Set(linkSet) || new Set();
+            for(var i of linkSet){
+                t.layers[i].setStyle({"color": '#00ff00',
+                                      "weight" : 4,
+                                      "opacity": 0.6});
+                t.layers[i].bringToFront();
             }
-            linkLinkMap.get(linkId).then( function(linkSet) {
-                t.clear = false;
-                linkSet = new Set(linkSet) || new Set();
-                for(var i of linkSet){
-                    t.layers[i].setStyle({"color": "red", "weight" : 4});
-                    t.layers[i].bringToFront();
-                }
-            });
-        };
+            t.layers[linkId].setStyle({"color": 'magenta',
+                                       "weight" : 10});
+        });
+
+    };
 
 }
 
@@ -92,17 +97,17 @@ mapControllers.controller('RouteCtrl', ['$scope', '$q', 'Links', 'LinkFlows','Li
                 var linkLinkMap = LinkLinkMap;
 
                 var linkids = [];
-                links.features.forEach(function(val){linkids.push(val.id);})
-
-                var hoverFilter = new HoverFilter(linkids, linkLinkMap);
+                links.features.forEach(function(val){linkids.push(val.id);});
 
                 var values = Object.keys(flows).map(function(key){return flows[key];});
 
                 var colormap = RedGreenColorMapper(values, LinearScaler);
 
+                var hoverFilter = new HoverFilter(linkids, linkLinkMap, flows, colormap);
+
                 var style = function (feature) {
                     var style = {
-                        "color": "green",
+                        "color": "blue",
                         "weight": 2,
                         "opacity": .65
                     };
