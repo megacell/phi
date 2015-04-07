@@ -1,200 +1,350 @@
-Installation
-============
+Experiment 2 Setup
+====================
+
+Parts
+-------------------------------
+0.	Updating
+1.	Clone Repositories
+2.	Database
+3.	Python
+4.	Experiments
+
+Updating
+-------------------------------
+Before we get started with the installation process, make sure your package manager is up to date.
+Run:
+
+    sudo apt-get update
+    sudo apt-get upgrade
+
+
+Cloning Repositories
+-------------------------------
+To run the traffic experiments, there are two code repositories that need to be cloned.
+
+To start off, you will need to install git if it isn't installed already. Open the terminal and run the command:
+
+    sudo apt-get install git
+
+Make a directory in your home directory. I called mine traffic, but you can name it anything you like.
+
+    cd ~
+    mkdir traffic
+    cd traffic/
+
+Once you are in this directory, you can clone the two code repositories. Just run:
+
+    git clone https://github.com/ion599/phi.git
+    git clone https://github.com/ion599/optimization.git
+
+As a sanity check, take a look in the two folders created, and see if there are some files and folders created.
+
+Database
+-------------------------------
+The project uses PostgresSQL as a data store and PostGIS as a spatial library to create the experiment matrices. This section covers the installation process for both of these packages.
+
+### Installing Postgres and Dependencies
+
+We are currently using PostgresSQL version 9.3 for this project. We are using materialized views. This feature was introduced in version 9.3, so any version of Postgres newer than 9.3 should work.
+
+To install PostgresSQL (and some additional tools), run:
+
+    sudo apt-get install postgresql postgresql-contrib pgadmin3 postgresql-server-dev-9.3
+
+For PostGIS:
+
+    sudo apt-get install postgresql-9.3-postgis-2.1
+
+For plpython:
+
+    sudo apt-get install postgresql-plpython
+
+### Configuring the Database
+
+We need to configure the database to use the PostGIS. In this section we create a user and set up a spatial database.
+
+First we are creating a postgis template database. Run:
+
+    sudo -u postgres createdb template_postgis
+
+We need to enable the the procedural language pgSQL. This allows us to run procedural scripts written in a modified SQL language. (This may already be installed)
+
+    sudo -u postgres createlang plpgsql template_postgis
+
+Next, we need to update the template to contain definitions for the spatial data types and functions.
+
+    sudo -u postgres psql template_postgis -f `pg_config --sharedir`/contrib/postgis-2.1/postgis.sql
+
+And add the spatial reference table:
+
+    sudo -u postgres psql template_postgis -f `pg_config --sharedir`/contrib/postgis-2.1/spatial_ref_sys.sql
+
+Finally, we create the a table called geodjango from the template:
+
+    sudo -u postgres createdb -T template_postgis geodjango
+
+We need to create a user, so our application can access the data without going through the administrative account for the db. To do this, run:
+
+    sudo -u postgres psql
+
+Once you are in the postgres console, run:
+
+    CREATE USER megacell;
+    ALTER DATABASE geodjango OWNER TO megacell;
+    GRANT ALL PRIVILEGES ON DATABASE geodjango TO megacell;
+
+Type `\q` to exit.
+
+To create the `plpythonu` language for the `geodjango` database, first open the database shell:
+
+    psql -U postgres -d geodjango
+
+Then run:
+
+    CREATE LANGUAGE plpythonu;
+
+
+Here are the old instructions:
+> You will need to modify the `pg_hba.conf` file to change the authentication on the megacell user.
+>
+> We are going to trust local modifications to the db from the megacell user. Open `pg_hba.conf` and add the following line to the file:
+>
+>     local   geodjango        megacell                                trust
+>
+> Directly below:
+>
+>     # Database administrative login by Unix domain socket
+>     local   all             postgres                                peer
+>
+>     # TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+I found it to be easier to grant permissions to all local connections if you
+aren't worrying about limiting access to other people sharing the same local
+machine. Just comment out all lines starting with `local` and add this line:
+
+    local   all             all                                      trust
+
+
+Save and then restart postgres:
+    sudo service postgresql restart
+
 Python
-------
-We are currently running python 2.7 on all systems. We try our best to stay up
-to date on the latest security patches.
+-------------------------------
+Most of the project is written in Python. In this section, we configure and install the Python packages needed for the project.
 
-We use the following python libraries (most of these can, and probably should,
-be installed via pip):
-- [django](https://www.djangoproject.com/) (specifically the geodjango library)
-- [requests](http://docs.python-requests.org/en/latest/)
-- [pico](https://github.com/fergalwalsh/pico)
-- [south](http://south.readthedocs.org/en/latest/installation.html#installation)
-  _Make sure to configure properly_
-- [psycopg2](http://initd.org/psycopg/)
-- [pyshp]
+### Installing Python
 
-Installation via pip (confirmed for OSX 10.8):
+If python is not already installed on your machine, run
 
-    sudo easy_install-2.7 pip-2.7
-    pip-2.7 install -r requirements.txt
+    sudo apt-get install python
 
-GeoDjango
----------
-- [gis](https://docs.djangoproject.com/en/dev/ref/contrib/gis/install/) install
-instructions give platform specific instructions for all the packages you need
-to get this working.
+Run `python -V` to confirm you have a 2.7.* version installed.
 
-Postgres **9.3**
-----------------
-The database that we are slowly migrating towards is postgres. The installation
-instructions for this vary from system to system. If you find a good one for
-your system, link to it here.
+We will also need the dev tools:
 
-On top of install postgres, we will need to use some postgres specific fields.
-To access these fields, install [*postgresql-contrib*] with your package manager.
+    sudo apt-get install python-dev
 
-We will also be using [*postgis*](http://postgis.net/) extensions for geometry
-support in postrges.  This has already been installed on the server. For me,
-on Linux, my package manager had postgis, so it was fairly simple. Hopefully
-this is true for brew, etc.
+### Installing Packages
+Install the numerical libaries and accessories:
 
-It is important that you use 9.3, because for our sanity we started using
-materialized views, a feature only available on this side of the 9.3 line.
+    sudo apt-get install libblas3gf libblas-dev liblapack3gf liblapack-dev python-numpy python-scipy python-matplotlib ipython
 
-I am using the following tutorial to set up models that support postgis-backing:
-[Using the Django ORM as a standalone component](https://jystewart.net/2008/02/18/using-the-django-orm-as-a-standalone-component/)
+Install the Python package manager(pip) with:
 
-To set up the postgres/postgis database for the megacell project, I did the
-following (YMMV):
-```bash
-su -
-su postgres
-createdb template_postgis
-createlang plpgsql template_postgis
-psql -d template_postgis -f /usr/share/postgresql/contrib/postgis-2.1/postgis.sql
-psql -d template_postgis -f /usr/share/postgresql/contrib/postgis-2.1/spatial_ref_sys.sql
-exit
-su - postgres -c 'createdb -T template_postgis geodjango'
-su postgres
-psql template1
-```
-In postgres console:
-```sql
-CREATE USER megacell;
-ALTER DATABASE geodjango OWNER TO megacell;
-GRANT ALL PRIVILEGES ON DATABASE geodjango TO megacell;
-```
+    sudo apt-get install python-pip
 
-Setup for OSX (based on [Instructions for OSX](http://lukeberndt.com/2011/postgres-postgis-on-osx-lion/), confirmed for OSX 10.8)
-```bash
-initdb /usr/local/var/postgres_mc/
-```
-Then start the database:
-```bash
-postgres -D /usr/local/var/postgres_mc/
-```
-In a separate shell:
-```bash
-createdb template_postgis
-psql -d template_postgis -f /usr/local/share/postgis/postgis.sql
-psql -d template_postgis -f /usr/local/share/postgis/spatial_ref_sys.sql
-createdb -T template_postgis geodjango
-psql template1
-```
-In postgres console:
-```sql
-CREATE USER megacell;
-ALTER DATABASE geodjango OWNER TO megacell;
-GRANT ALL PRIVILEGES ON DATABASE geodjango TO megacell;
-```
+Update the setuptools:
 
-Geos
-----
-If this does not come by default with postgis, you will probably need
-[geos](http://trac.osgeo.org/geos/) as well. TBH, I don't remember exactly
-where this dependency comes in to the system. If you discover where this is
-required, please update the README.
+    sudo pip install -U setuptools
 
-Data files
-==========
-To push changes: 
-```bash
-rsync -e ssh datasets/Phi --exclude Phi/data -rzv <HOST_URL>:datasets
-```
+Install the required packages for the two projects:
 
-To pull changes: must have an empty (or previously pulled) directory called 
-datasets.
-```bash
-rsync -e ssh --exclude Phi/data -rzv <HOST_URL>:datasets .
-```
+    sudo pip install -r ~/traffic/phi/requirements.txt
+    sudo pip install -r ~/traffic/optimization/requirements.txt
 
-The first time you pull (if you want the entire dataset), you can remove the 
-exclude. That has all of the routes as JSON files. If you don't want them, 
-leave the exclude in there. Either way, when you push or pull after the first 
-time, you want to exclude that directory.
+Experiments
+-------------------------------
 
-Database Schema
-===============
-To start, make sure that the environment is set up properly. Replace BASE_DIR
-with the path to the root of this project.
-```bash
-export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
-```
-To install and update the database schema, go into `/django_utils` and run
-```bash
-django-admin.py syncdb --settings=settings_geo
-django-admin.py migrate --settings=settings_geo
-```
+### Downloading Datasets
+You will need to generate an RSA key pair to access the data server. You can take a look on [github](https://help.github.com/articles/generating-ssh-keys) on how to to do this.
 
-<Add section here about permissions>
+Email me (ld283@cornell.edu) or Steven (steve.yadlowsky@berkeley.edu) your public key and we will add it to the server.
 
-Importing data (sensors, origins, routes, and waypoints)
-=======
-To start, make sure that the environment is set up properly. Replace BASE_DIR
-with the path to the root of this project. Make sure you have the entire Phi 
-dataset, and all of your migrations are run.
-```
-export PYTHONPATH=$PYTHONPATH:BASE_DIR:BASE_DIR/django_utils
-```
-To load the sensors into the database, go to `/djange_utils` and open
-`orm/load.py`. Set the file path to the appropriate path on your machine, save
-and run `django-admin.py shell --settings=settings_geo`
-In the shell, execute
-```python
-from orm import load
-load.import_sensors()
-load.load_origins()
-load.import_lookup()
-load.import_routes()
-load.import_waypoints()
-```
-Some of the commands will take a while to run, in particular importing routes.
+run
 
-Exit the shell, and from the bash prompt in `django_utils` run (these may take
-a while too):
-```bash
-psql -U <SUPERUSER> -d geodjango -f waypoints/voronoi_python.sql
-psql -U megacell -d geodjango -f waypoints/set_waypoint_voronoi.sql
-psql -U megacell -d geodjango -f waypoints/create_od_waypoint_view.sql
-```
+    rsync -e ssh -rzv ubuntu@ec2-54-212-249-155.us-west-2.compute.amazonaws.com:datasets ~/traffic
 
-Loading the experiment(s)
-==========
-To load an experiment into the database, go to `/djange_utils` and open
-`orm/load.py`. Set the file path to the appropriate path on your machine, save
-and run `django-admin.py shell --settings=settings_geo`
-Be sure that you have run all of your migrations, otherwise the following will
-take a very long time:
-```bash
-django-admin.py migrate --settings=settings_geo orm
-```
-Make sure you have the `outputSmallData.mat` file in the datasets/Phi directory.
-This should contain 2 variables: `x_true` and `xLBFGS`, which are loaded into
-the database, and associated with the appropriate route. In the shell, execute
-```python
-from orm import load
-load.import_experiment("../data/od_back_map.pickle", "first small experiment")
-load.import_experiment_data("first small experiment")
-```
+### Modifying the config.py Files
+You will need to point the configuration file to the correct dataset directory. Without this configured, the code will not know where to look for data files or save any outputs files.
 
-Experiment Sensors
-==================
-From the django shell run
-```python
-from orm import models
-import datetime
-e = models.Experiment(description="first small experiment",run_time=datetime.datetime.now())
-e.save()
-print e.id
-from orm import load
-# The following assumes you have a route_assignment_matrices_ntt.mat in the data
-# folder, as well as a sensors.csv file
-load.import_experiment_sensors("first small experiment")
-```
+In `~/traffic/phi/django_utils/config.py` you will see something like this:
 
-Updates
-=======
-If you ran most of these a while ago, you may have to go back and run all of
-Waypoints and the `load.import_lookup()` from Origins.
+    ACCEPTED_LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'WARN']
+
+    DATA_DIR = '/home/<your user name here>/traffic/datasets/Phi' # FIXME replace with your data path
+    EXPERIMENT_MATRICES_DIR = 'experiment_matrices'
+    ESTIMATION_INFO_DIR = 'estimation_info'
+    WAYPOINTS_FILE = 'waypoints-950.pkl'
+    WAYPOINT_DENSITY = 950
+    canonical_projection = 4326
+    google_projection = 3857 # alternatively 900913
+    EPSG32611 = 32611
+
+    NUM_ROUTES_PER_OD = 3
+    SIMILARITY_FACTOR = .8
+    import os
+    # The directory must exist for other parts of this application to function properly
+    assert(os.path.isdir(DATA_DIR))
+
+Modify the `<your user name here>` with the name of your home directory.
+
+Similarly, modify `~/traffic/optimization/python.config.py`
+
+### Import Data into the Database
+
+#### Create DB Schema
+First, you need to export the `/home/<user>/traffic/phi' and `/home/<user>/traffic/phi/django_utils' paths to the `PYTHONPATH` variable. This lets the python interpreter where to look for packages.
+
+    export PYTHONPATH=$PYTHONPATH:/home/<user>/traffic/phi:/home/<user>/traffic/phi/django_utils
+
+You can modify your .bashrc file to contain this line, so you don't have to run this command everytime you open the terminal.
+
+To install the database schema, run:
+
+    cd ~/traffic/phi/django_utils/
+    ./manage.py syncdb --settings=settings_geo
+    ./manage.py migrate --settings=settings_geo
+(Note: Django 1.7 was released on September 2, 2014. Django now has built in support for schema migrations. I've removed south and updated the project to use the built in migration library.)
+#### Populate Data
+We populate all the database fields in this step. This is the longest running step in setting up the experiments. Before doing this, make sure you can leave your machine on for **4-10 hours**.
+
+We first need to load sensors and waypoint information. To do this, we need to bring up the django shell:
+
+    cd ~/traffic/phi/django_utils/
+    ./manage.py shell
+
+Once the shell is open run:
+
+    from orm import load
+    load.import_all()
+
+This will populate the database with the correct sensor and waypoint information.
+
+Now we need to load trajectories, create routes, etc. While still in the shell, run:
+
+    from experiments.experiment2 import run_experiment
+    run_experiment.setup_db()
+
+### Running Experiments
+
+To generate the matrices we used for the ISTTT paper, open the django console run:
+
+    from experiments.experiment2 import run_experiment
+    run_experiment.generate_experiment_matrices()
+
+This will create all the matrices and save them in the experiment_matrices directory.
+
+To calculate the results, change directories into the optimization project and run:
+    python main.py --solver=BB --log==DEBUG
+
+### Making Plots
+To generate the plots in the submitted ISTTT paper, change directories into the `optimization/python` directory and run:
+    python plot_error_vs_route_usage.py
+    python waypoint_plots.py
+
+### Running the visualization server
+Go to the visualizations folder:
+
+    cd ~/traffic/phi/visualization
+
+First install the dependencies:
+
+    pip install -r requirements.txt
+
+First sync and migradethe databases:
+
+    ./manage.py syncdb
+    ./manage.py migrate
+
+Then run the shell
+
+    ./manage.py shell
+
+For testing, import the dummy data:
+
+    run phidata/data_import/dummy_data.py
+
+Otherwise, import cell, link and route data:
+
+    run phidata/data_import/cell_data.py
+    run phidata/data_import/link_data.py
+    run phidata/data_import/route_data.py
+
+To deploy a public server, follow the instructions
+[here][https://docs.djangoproject.com/en/1.8/howto/deployment/wsgi/modwsgi/]
+
+
+Architecture
+
+create_experiment2: metaparameters (ignore unless it breaks, should be removed)
+lgl.load_LA_links:
+  Loads the maps
+  takes in a shapefile, reads it and loads the links
+  directory is source of links
+  creates link_geometry table
+  canonical projection: eggs4326 projection, wgs84
+  stores different projections
+  optimized loading using stringIO
+
+trajectory_loader:
+  agent_id : person driving
+  commute_direction: morning or evening
+  route_string : linkids
+  orig_TAZ, dest_TAZ should be integers but are floats
+  link_ids: series of links transversed.
+  create indexes doesnt make a difference
+
+route_loader:
+  self.link_geom = dict()   # Caching objects
+  self.length_cache = dict()
+  self.commute_direction = 0 # Set am or pm direction
+  import_link_geometry_table(self):
+    First import link geometry and caches link lengths
+  load_routes:
+    groups = self.import_trajectory_groups() # grouped by od pairs
+  For any two trajectories, calculate which route they belong to. Happens in
+  Trajectory.match_percent, RouteCreater. A route is a bundle of similar trajectories
+
+waypoint_loader: cell-tower locations
+  orm/load.import_waypoints
+  (autocommit wasn't needed)
+  density_id is needed to identify waypoint set
+  load_waypoints_file("filename", random_id)
+
+voronoi_python: voronoi_partition function (verbatim)
+
+set_waypoint_voronoi.sql: for each waypoint density,
+
+waypoint_sequences.sql: calculates how the route intersects sequences of
+waypoints (slowest part of importing the data) generates a table of links and
+intersecting waypoints. Buildes a waypoint sequence for each route. (take a look
+at for bugs)
+
+create_od_waypoint_view:
+
+
+phi: route-sensor mapping, change when routes used changes
+
+matrix generation: sorting induces an order
+
+waypointmatrixgenerator ignores OD-flows
+
+run_experiment.matrix_generator
+
+return waypoints.WaypointMatrixGenerator(phi, routes, waypoint_density)
+control
+return separated.WaypointMatrixGenerator(phi,routes, waypoint_density)
+
+return waypoints_od.WaypointODMatrixGenerator(phi, routes, waypoint_density)
+
+never use waypoint_od_matrix_generator (more information than we ever knows)
