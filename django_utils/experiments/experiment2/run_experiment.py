@@ -44,6 +44,7 @@ def setup_db():
     os.system("psql -U postgres -d geodjango -f waypoints/voronoi_python.sql")
     os.system("psql -U megacell -d geodjango -f waypoints/set_waypoint_voronoi.sql")
     print("create waypoint bins")
+    os.system("psql -U postgres -d geodjango -f experiments/experiment2/database_setup/waypoint_sequences.sql")
     os.system("psql -U megacell -d geodjango -f experiments/experiment2/database_setup/create_od_waypoint_view.sql")
 
 def ensure_directory(path):
