@@ -115,15 +115,15 @@ def import_lookup(verbose=True):
 
 def load_waypoints_file(filepath, density_id):
     waypoints = pickle.load(open("{0}/{1}".format(config.WAYPOINTS_DIRECTORY, filepath)))
-    ac = transaction.get_autocommit()
-    transaction.set_autocommit(False)
+    #ac = transaction.get_autocommit()
+    #transaction.set_autocommit(False)
     for category, locations in waypoints.iteritems():
         for location in locations:
             pt = Point(tuple(location), srid=canonical_projection)
             wp = Waypoint(location=pt, location_dist=pt.transform(google_projection, clone=True), category=category, density_id=density_id)
             wp.save()
-    transaction.commit()
-    transaction.set_autocommit(ac)
+    #transaction.commit()
+    #transaction.set_autocommit(ac)
 
 def import_waypoints(verbose=True):
     Waypoint.objects.all().delete()

@@ -2,7 +2,7 @@ DATABASES = {
         'default': {
             'ENGINE': 'phidb.db.backends.postgresql_psycopg2',
             'NAME' : 'geodjango',
-            'USER' : 'megacell'
+            'USER' : 'megacell',
             }
         }
 

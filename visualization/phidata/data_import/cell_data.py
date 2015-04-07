@@ -65,5 +65,5 @@ class CellRouteMapGenerator:
 
 
 if __name__ == "__main__":
-    CellTowers().clear().load(1000)
+    CellTowers().clear().load(238)
     CellRouteMapGenerator().clear().load()
