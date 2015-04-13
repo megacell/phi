@@ -127,12 +127,17 @@ def load_waypoints_file(filepath, density_id):
 
 def import_waypoints(verbose=True):
     Waypoint.objects.all().delete()
-    density = config.WAYPOINT_DENSITIES
-    files = ["waypoints-{0}.pkl".format(d) for d in density]
-    for f,d in zip(files,density):
-        if d == 0:
-            continue
-        load_waypoints_file(f, d)
+    if config.SINGLE_WAYPOINT:
+        density = config.WAYPOINT_DENSITY
+        filename = config.WAYPOINTS_FILE
+        load_waypoints_file(filename, density)
+    else:
+        density = config.WAYPOINT_DENSITIES
+        files = ["waypoints-{0}.pkl".format(d) for d in density]
+        for f,d in zip(files,density):
+            if d == 0:
+                continue
+            load_waypoints_file(f, d)
 
 
 def find_route_by_origin_destination_route_index(o, d, idx):

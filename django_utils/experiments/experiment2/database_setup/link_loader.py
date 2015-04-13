@@ -78,11 +78,11 @@ def load_LA_links():
     import timeit
 
     tic = timeit.default_timer()
-    lgl = LinkLoader(connection, config.DATA_DIR + '/LA_shps/links/LA_network_links_V2')
+    lgl = LinkLoader(connection, config.LINKS_FILES)
     lgl.load()
     toc = timeit.default_timer()
     print (toc - tic)
 
 if __name__ == "__main__":
-    lg = LinkLoader(connection, config.DATA_DIR + '/LA_shps/links/LA_network_links_V2')
+    lg = LinkLoader(connection, config.LINKS_FILES)
     lg.load()

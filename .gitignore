@@ -5,3 +5,5 @@ data
 *.swo
 .project
 .pydevproject
+*~
+/django_utils/config.py

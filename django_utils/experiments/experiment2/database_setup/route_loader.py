@@ -109,7 +109,7 @@ class RouteLoader:
 
     def load_routes(self):
         tic = timeit.default_timer()
-        groups = self.import_trajectory_groups()
+        groups = self.import_trajectory_groups() # grouped by od pairs
         toc = timeit.default_timer()
         print toc - tic
 

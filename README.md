@@ -284,42 +284,54 @@ To deploy a public server, follow the instructions
 [here][https://docs.djangoproject.com/en/1.8/howto/deployment/wsgi/modwsgi/]
 
 
-Architecture
+### Architecture of Experiment 2
 
-create_experiment2: metaparameters (ignore unless it breaks, should be removed)
-lgl.load_LA_links:
-  Loads the maps
-  takes in a shapefile, reads it and loads the links
-  directory is source of links
-  creates link_geometry table
-  canonical projection: eggs4326 projection, wgs84
-  stores different projections
-  optimized loading using stringIO
+The experiments uses data from datasets that are set in `config.py`. The
+following steps are run in `setup_db` from
+`experiments/experiment2/run_experiment.py` to load the data:
 
-trajectory_loader:
-  agent_id : person driving
-  commute_direction: morning or evening
-  route_string : linkids
-  orig_TAZ, dest_TAZ should be integers but are floats
-  link_ids: series of links transversed.
-  create indexes doesnt make a difference
+* `create_experiment2`: sets up metaparameters (ignore unless it breaks, should be removed)
+* Link loader (`lgl.load_LA_links()`):
+    - A link is a line segment representing part of a road
+    - **Input:** Takes in shape files from `LINKS_FILES` directory as specified in the
+      config, reads it and loads the links.
+    - **Tables changed:** Creates `link_geometry` table in the database
+    - Stores different projections of the coordinates of each link in the
+      database table (eg. canonical projection: eggs4326 projection, wgs84)
+    - Optimized loading using `stringIO`
+* Trajectory loader (`tl.load()`):
+    - **Input:** Loads trajectories from a `.csv` file into the database
+    - **Tables changed:** `experiment2_trajectories` created
+    - Each trajectory is stored as a sequence of links along with other metadata:
+        + `agent_id` : person driving
+        + `commute_direction`: morning or evening
+        + `orig_TAZ`, `dest_TAZ`: origin and destination
+        + `link_ids`: ids of each link in the sequence of links traversed
+    - Notes:
+        + `CREATE INDEX` doesn't make a difference
+        + `orig_TAZ`, `dest_TAZ` should be integers but are floats
+* Route loader (`rl.load()`)
+    - **Input:** Existing link and trajectory data
+    - **Tables changed:** `experiment2_routes` created
+    - A route is a bundle of similar trajectories (Similarity is determined by
+      `config.SIMILARITY_FACTOR` in `route_creater.py`)
+    - Caching of the links is first done in `import_link_geometry_table`, which
+      is important for speed
+    - First group trajectories by od-pairs (`RouteLoader.import_trajectory_groups`)
+    - In `route_creater.py`, group trajectories from each od pair that are
+      similar enough into one route (Happens in `Trajectory.match_percent` in
+      `RouteCreater`), which is represented by the origin and destination TAZs,
+      links in the route, as well as the number of agents taking the route.
+* Waypoint loader (`lw.import_waypoints()`)
+    - **Input:** Waypoints files containing coordinates of waypoints (Either
+      synthetically generated or real cell-tower locations)
+    - **Tables changed:** `orm_waypoint`, schemea defined in `orm.models.Waypoint`
+    - Waypoints are the cell-tower locations, `density_id` is needed to uniquely
+      identify each set of waypoints
+    - This happens in `orm.load.import_waypoints`
+    - Notes:
+        + Removing autocommit and manually committing wasn't needed
 
-route_loader:
-  self.link_geom = dict()   # Caching objects
-  self.length_cache = dict()
-  self.commute_direction = 0 # Set am or pm direction
-  import_link_geometry_table(self):
-    First import link geometry and caches link lengths
-  load_routes:
-    groups = self.import_trajectory_groups() # grouped by od pairs
-  For any two trajectories, calculate which route they belong to. Happens in
-  Trajectory.match_percent, RouteCreater. A route is a bundle of similar trajectories
-
-waypoint_loader: cell-tower locations
-  orm/load.import_waypoints
-  (autocommit wasn't needed)
-  density_id is needed to identify waypoint set
-  load_waypoints_file("filename", random_id)
 
 voronoi_python: voronoi_partition function (verbatim)
 
@@ -329,9 +341,6 @@ waypoint_sequences.sql: calculates how the route intersects sequences of
 waypoints (slowest part of importing the data) generates a table of links and
 intersecting waypoints. Buildes a waypoint sequence for each route. (take a look
 at for bugs)
-
-create_od_waypoint_view:
-
 
 phi: route-sensor mapping, change when routes used changes
 
