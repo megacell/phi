@@ -34,7 +34,7 @@ Make a directory in your home directory. I called mine traffic, but you can name
 
 Once you are in this directory, you can clone the two code repositories. Just run:
 
-    git clone https://github.com/ion599/phi.git
+    git clone https://github.com/megacell/phi
     git clone https://github.com/ion599/optimization.git
 
 As a sanity check, take a look in the two folders created, and see if there are some files and folders created.
