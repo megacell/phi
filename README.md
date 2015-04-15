@@ -326,34 +326,31 @@ following steps are run in `setup_db` from
     - **Input:** Waypoints files containing coordinates of waypoints (Either
       synthetically generated or real cell-tower locations)
     - **Tables changed:** `orm_waypoint`, schemea defined in `orm.models.Waypoint`
-    - Waypoints are the cell-tower locations, `density_id` is needed to uniquely
-      identify each set of waypoints
+    - Waypoints are the cell-tower locations, `density_id` is used everywhere to
+      uniquely identify each set of waypoints. To add a new set of waypoints, we
+      need to provide a unique `density_id`
     - This happens in `orm.load.import_waypoints`
     - Notes:
         + Removing autocommit and manually committing wasn't needed
-
-
-voronoi_python: voronoi_partition function (verbatim)
-
-set_waypoint_voronoi.sql: for each waypoint density,
-
-waypoint_sequences.sql: calculates how the route intersects sequences of
-waypoints (slowest part of importing the data) generates a table of links and
-intersecting waypoints. Buildes a waypoint sequence for each route. (take a look
-at for bugs)
-
-phi: route-sensor mapping, change when routes used changes
-
-matrix generation: sorting induces an order
-
-waypointmatrixgenerator ignores OD-flows
-
-run_experiment.matrix_generator
-
-return waypoints.WaypointMatrixGenerator(phi, routes, waypoint_density)
-control
-return separated.WaypointMatrixGenerator(phi,routes, waypoint_density)
-
-return waypoints_od.WaypointODMatrixGenerator(phi, routes, waypoint_density)
-
-never use waypoint_od_matrix_generator (more information than we ever knows)
+* Waypoint sequences (The `.sql` files run in `setup_db`)
+    - **Input:** Waypoints data loaded from before
+    - **Tables changed:** Creates `waypoint_voronoi`, which is a table
+      containing the voronoi partitions for each waypoint, and updates
+      `orm_waypoint` with the computed partitions. Also creates tables
+      `waypoint_density` and `experiment2_waypoint_od_bins`
+    - `voronoi_python.sql`: loads voronoi_partition function (verbatim)
+    - `set_waypoint_voronoi.sql`: for each waypoint density,
+    - `waypoint_sequences.sql`: calculates how the route intersects sequences of
+       waypoints (slowest part of importing the data) generates a table of links
+       and intersecting waypoints. Builds a waypoint sequence for each
+       route. (take a look at for bugs)
+    - `create_od_waypoint_view.sql`: Creates more waypoint tables
+* Phi (`get_phi()` in `run_experiment.py`):
+    - **Input:** `experiment2_routes` table
+    - **Output:** `phi.pkl` in the data directory, which is a route-sensor
+      mapping, regenerate when routes used changes.
+* Generating experiment matrices (`run_experiment.matrix_generator`)
+    - There's three different lines in `matrix_generator`:
+        + `return waypoints.WaypointMatrixGenerator(phi,routes,waypoint_density)`: Experiment matrices (ignores OD-flows)
+        + `return separated.WaypointMatrixGenerator(phi,routes,waypoint_density)`: Control matrices
+        + `return waypoints_od.WaypointODMatrixGenerator(phi,routes,waypoint_density)`: Never use this, more information than we ever knows
