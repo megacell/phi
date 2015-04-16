@@ -1,5 +1,5 @@
 django
 djangorestframework
 djangorestframework-gis
-djorm-pgarry
+djorm-pgarray
 djorm-ext-expressions
