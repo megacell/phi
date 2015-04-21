@@ -244,6 +244,10 @@ To generate the matrices we used for the ISTTT paper, open the django console ru
 
 This will create all the matrices and save them in the experiment_matrices directory.
 
+Sometimes `phi.pkl` is out of date and we might need to regenerate it. To do
+that just remove it from the experiment_matrices directory before running
+`generate_experiment_matrices`.
+
 To calculate the results, change directories into the optimization project and run:
     python main.py --solver=BB --log==DEBUG
 
