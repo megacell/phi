@@ -235,7 +235,7 @@ Now we need to load trajectories, create routes, etc. While still in the shell, 
     from experiments.experiment2 import run_experiment
     run_experiment.setup_db()
 
-### Running Experiments
+### Generating matrices
 
 To generate the matrices we used for the ISTTT paper, open the django console run:
 
@@ -248,13 +248,11 @@ Sometimes `phi.pkl` is out of date and we might need to regenerate it. To do
 that just remove it from the experiment_matrices directory before running
 `generate_experiment_matrices`.
 
-To calculate the results, change directories into the optimization project and run:
-    python main.py --solver=BB --log==DEBUG
+### Running Experiments and Making Plots
 
-### Making Plots
-To generate the plots in the submitted ISTTT paper, change directories into the `optimization/python` directory and run:
-    python plot_error_vs_route_usage.py
-    python waypoint_plots.py
+To calculate the results and generate the plots in the submitted ISTTT paper,
+change directories into the `optimization/python` directory and follow the
+readme there.
 
 ### Running the visualization server
 Go to the visualizations folder:
@@ -265,7 +263,7 @@ First install the dependencies:
 
     pip install -r requirements.txt
 
-First sync and migradethe databases:
+First sync and migrate the databases:
 
     ./manage.py syncdb
     ./manage.py migrate
