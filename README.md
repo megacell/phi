@@ -347,6 +347,7 @@ following steps are run in `setup_db` from
        and intersecting waypoints. Builds a waypoint sequence for each
        route. (take a look at for bugs)
     - `create_od_waypoint_view.sql`: Creates more waypoint tables
+    -
 * Phi (`get_phi()` in `run_experiment.py`):
     - **Input:** `experiment2_routes` table
     - **Output:** `phi.pkl` in the data directory, which is a route-sensor
@@ -356,3 +357,35 @@ following steps are run in `setup_db` from
         + `return waypoints.WaypointMatrixGenerator(phi,routes,waypoint_density)`: Experiment matrices (ignores OD-flows)
         + `return separated.WaypointMatrixGenerator(phi,routes,waypoint_density)`: Control matrices
         + `return waypoints_od.WaypointODMatrixGenerator(phi,routes,waypoint_density)`: Never use this, more information than we ever knows
+
+
+Loading New Waypoints
+=====================
+After the initial setup and if we want to load another waypoint file, Given a
+waypoint pickle file `waypoints-???.pkl` in the data folder:
+
+1. Clear the waypoints table in the database via `psql -U megacell -d geodjango`:
+```sql
+DELETE from orm_waypoint;
+```
+
+1. `django-admin.py shell --settings=settings_geo`
+
+2. In the shell,
+```python
+from orm import load
+load.import_waypoints()
+```
+3. Exit shell.
+4. `psql -U megacell -d geodjango -f waypoints/set_waypoint_voronoi.sql`
+5. `experiments/experiment2/database_setup/create_od_waypoint_view.sql` (takes a while)
+
+If you ran `create_od_waypoint_view.sql` before, you have access to the
+`waypoint_od_bins` view. It is a materialized view so that it doesn't have to
+perform that expensive query every time. If you make any changes to the
+waypoints, routes, or origins, you can refresh the view via: `psql -U megacell
+-d geodjango`
+
+```sql
+REFRESH MATERIALIZED VIEW waypoint_od_bins;
+```
