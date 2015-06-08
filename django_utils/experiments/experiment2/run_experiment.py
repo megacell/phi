@@ -80,7 +80,9 @@ def get_phi(regenerate=False):
 
 def generate_experiment_matrices():
     phi = get_phi()
-    for d in config.WAYPOINT_DENSITIES:
+    densities = [config.WAYPOINT_DENSITY] if config.SINGLE_WAYPOINT \
+                else config.WAYPOINT_DENSITIES
+    for d in densities:
         for r in [50,40,30,20,10,3]:
             print("Generating Matrix Set (waypoints: {0}, routes: {1})".format(d,r))
             print waypoint_matrix_file_name(r, d)

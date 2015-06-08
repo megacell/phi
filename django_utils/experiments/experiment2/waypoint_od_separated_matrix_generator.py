@@ -181,10 +181,10 @@ class WaypointMatrixGenerator:
 
             sql_query = """
             SELECT sum(flow_count)
-            FROM experiment2_routes
+            FROM experiment2_routes r
             join experiment2_waypoint_od_bins w
             on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
-            WHERE od_route_index < %(num_routes)s
+            WHERE r.od_route_index < %(num_routes)s
             GROUP BY orig_taz, dest_taz
             ORDER BY orig_taz, dest_taz
             """
