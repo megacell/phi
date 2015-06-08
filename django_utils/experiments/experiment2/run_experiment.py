@@ -1,6 +1,9 @@
 from orm.models import Sensor, ExperimentSensor, Experiment
 import datetime
-from database_setup import trajectory_loader as tl, route_loader as rl, link_loader as lgl
+from database_setup import trajectory_loader as tl,
+from database_setup import route_loader as rl
+from database_setup import link_loader as lgl
+from database_setup import taz_loader as tzl
 import od_matrix_generator as od
 import waypoint_od_matrix_generator as waypoints_od
 import waypoint_matrix_generator as waypoints
@@ -39,6 +42,8 @@ def setup_db():
     tl.load()
     print("importing routes into the db")
     rl.load()
+    print ("load taz")
+    tzl.load()
     print ("load waypoints")
     lw.import_waypoints()
     os.system("psql -U postgres -d geodjango -f waypoints/voronoi_python.sql")
