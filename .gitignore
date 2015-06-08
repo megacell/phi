@@ -7,3 +7,4 @@ data
 .pydevproject
 *~
 /django_utils/config.py
+/django_utils/experiment_matrices

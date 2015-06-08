@@ -11,11 +11,10 @@ Parts
 
 Updating
 -------------------------------
-Before we get started with the installation process, make sure your package manager is up to date.
-Run:
+Before we get started with the installation process, make sure you have the [Homebrew](http://brew.sh) package manager installed and all packages up-to-date:
 
-    sudo apt-get update
-    sudo apt-get upgrade
+    sudo brew update
+    sudo brew upgrade
 
 
 Cloning Repositories
@@ -24,7 +23,7 @@ To run the traffic experiments, there are two code repositories that need to be 
 
 To start off, you will need to install git if it isn't installed already. Open the terminal and run the command:
 
-    sudo apt-get install git
+    sudo brew install git
 
 Make a directory in your home directory. I called mine traffic, but you can name it anything you like.
 
@@ -47,17 +46,13 @@ The project uses PostgresSQL as a data store and PostGIS as a spatial library to
 
 We are currently using PostgresSQL version 9.3 for this project. We are using materialized views. This feature was introduced in version 9.3, so any version of Postgres newer than 9.3 should work.
 
-To install PostgresSQL (and some additional tools), run:
+To install PostgresSQL run (it's important to set the --with-python flag to get the PL/Python language):
 
-    sudo apt-get install postgresql postgresql-contrib pgadmin3 postgresql-server-dev-9.3
+    sudo brew install --with-python postgresql 
 
 For PostGIS:
 
-    sudo apt-get install postgresql-9.3-postgis-2.1
-
-For plpython:
-
-    sudo apt-get install postgresql-plpython
+    sudo brew install postgis
 
 ### Configuring the Database
 
@@ -71,13 +66,17 @@ We need to enable the the procedural language pgSQL. This allows us to run proce
 
     sudo -u postgres createlang plpgsql template_postgis
 
-Next, we need to update the template to contain definitions for the spatial data types and functions.
+Next, we need to update the template to contain definitions for the spatial data types and functions. To do so run
 
-    sudo -u postgres psql template_postgis -f `pg_config --sharedir`/contrib/postgis-2.1/postgis.sql
+	brew info postgis
+
+and look for the path below the line “PostGIS SQL scripts installed to:”, replace <SQLScriptPath> with that path when running the following commands:
+
+    sudo -u postgres psql template_postgis -f <SQLScriptPath>/postgis.sql
 
 And add the spatial reference table:
 
-    sudo -u postgres psql template_postgis -f `pg_config --sharedir`/contrib/postgis-2.1/spatial_ref_sys.sql
+    sudo -u postgres psql template_postgis -f <SQLScriptPath>/spatial_ref_sys.sql
 
 Finally, we create the a table called geodjango from the template:
 
@@ -136,22 +135,16 @@ Most of the project is written in Python. In this section, we configure and inst
 
 If python is not already installed on your machine, run
 
-    sudo apt-get install python
+    sudo brew install python
 
 Run `python -V` to confirm you have a 2.7.* version installed.
-
-We will also need the dev tools:
-
-    sudo apt-get install python-dev
 
 ### Installing Packages
 Install the numerical libaries and accessories:
 
-    sudo apt-get install libblas3gf libblas-dev liblapack3gf liblapack-dev python-numpy python-scipy python-matplotlib ipython
-
-Install the Python package manager(pip) with:
-
-    sudo apt-get install python-pip
+	sudo brew install cgal
+	sudo brew install sfcgal —build-from-source
+	sudo pip install -U numpy scipy ipython matplotlib
 
 Update the setuptools:
 
@@ -172,7 +165,7 @@ Email me (ld283@cornell.edu) or Steven (steve.yadlowsky@berkeley.edu) your publi
 
 run
 
-    rsync -e ssh -rzv ubuntu@ec2-54-212-249-155.us-west-2.compute.amazonaws.com:datasets ~/traffic
+    rsync -e ssh -rzv ubuntu@54.67.119.215:traffic ~/traffic
 
 ### Modifying the config.py Files
 You will need to point the configuration file to the correct dataset directory. Without this configured, the code will not know where to look for data files or save any outputs files.
@@ -181,7 +174,7 @@ In `~/traffic/phi/django_utils/config.py` you will see something like this:
 
     ACCEPTED_LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'WARN']
 
-    DATA_DIR = '/home/<your user name here>/traffic/datasets/Phi' # FIXME replace with your data path
+    DATA_DIR = ‘/Users/<your user name here>/traffic/datasets/Phi' # FIXME replace with your data path
     EXPERIMENT_MATRICES_DIR = 'experiment_matrices'
     ESTIMATION_INFO_DIR = 'estimation_info'
     WAYPOINTS_FILE = 'waypoints-950.pkl'
@@ -205,7 +198,7 @@ Similarly, modify `~/traffic/optimization/python.config.py`
 #### Create DB Schema
 First, you need to export the `/home/<user>/traffic/phi' and `/home/<user>/traffic/phi/django_utils' paths to the `PYTHONPATH` variable. This lets the python interpreter where to look for packages.
 
-    export PYTHONPATH=$PYTHONPATH:/home/<user>/traffic/phi:/home/<user>/traffic/phi/django_utils
+    export PYTHONPATH=$PYTHONPATH:/Users/<user>/traffic/phi:/Users/<user>/traffic/phi/django_utils
 
 You can modify your .bashrc file to contain this line, so you don't have to run this command everytime you open the terminal.
 
@@ -235,7 +228,7 @@ Now we need to load trajectories, create routes, etc. While still in the shell, 
     from experiments.experiment2 import run_experiment
     run_experiment.setup_db()
 
-### Generating matrices
+### Running Experiments
 
 To generate the matrices we used for the ISTTT paper, open the django console run:
 
@@ -244,15 +237,13 @@ To generate the matrices we used for the ISTTT paper, open the django console ru
 
 This will create all the matrices and save them in the experiment_matrices directory.
 
-Sometimes `phi.pkl` is out of date and we might need to regenerate it. To do
-that just remove it from the experiment_matrices directory before running
-`generate_experiment_matrices`.
+To calculate the results, change directories into the optimization project and run:
+    python main.py --solver=BB --log==DEBUG
 
-### Running Experiments and Making Plots
-
-To calculate the results and generate the plots in the submitted ISTTT paper,
-change directories into the `optimization/python` directory and follow the
-readme there.
+### Making Plots
+To generate the plots in the submitted ISTTT paper, change directories into the `optimization/python` directory and run:
+    python plot_error_vs_route_usage.py
+    python waypoint_plots.py
 
 ### Running the visualization server
 Go to the visualizations folder:
@@ -263,7 +254,7 @@ First install the dependencies:
 
     pip install -r requirements.txt
 
-First sync and migrate the databases:
+First sync and migradethe databases:
 
     ./manage.py syncdb
     ./manage.py migrate
@@ -328,64 +319,34 @@ following steps are run in `setup_db` from
     - **Input:** Waypoints files containing coordinates of waypoints (Either
       synthetically generated or real cell-tower locations)
     - **Tables changed:** `orm_waypoint`, schemea defined in `orm.models.Waypoint`
-    - Waypoints are the cell-tower locations, `density_id` is used everywhere to
-      uniquely identify each set of waypoints. To add a new set of waypoints, we
-      need to provide a unique `density_id`
+    - Waypoints are the cell-tower locations, `density_id` is needed to uniquely
+      identify each set of waypoints
     - This happens in `orm.load.import_waypoints`
     - Notes:
         + Removing autocommit and manually committing wasn't needed
-* Waypoint sequences (The `.sql` files run in `setup_db`)
-    - **Input:** Waypoints data loaded from before
-    - **Tables changed:** Creates `waypoint_voronoi`, which is a table
-      containing the voronoi partitions for each waypoint, and updates
-      `orm_waypoint` with the computed partitions. Also creates tables
-      `waypoint_density` and `experiment2_waypoint_od_bins`
-    - `voronoi_python.sql`: loads voronoi_partition function (verbatim)
-    - `set_waypoint_voronoi.sql`: for each waypoint density,
-    - `waypoint_sequences.sql`: calculates how the route intersects sequences of
-       waypoints (slowest part of importing the data) generates a table of links
-       and intersecting waypoints. Builds a waypoint sequence for each
-       route. (take a look at for bugs)
-    - `create_od_waypoint_view.sql`: Creates more waypoint tables
-    -
-* Phi (`get_phi()` in `run_experiment.py`):
-    - **Input:** `experiment2_routes` table
-    - **Output:** `phi.pkl` in the data directory, which is a route-sensor
-      mapping, regenerate when routes used changes.
-* Generating experiment matrices (`run_experiment.matrix_generator`)
-    - There's three different lines in `matrix_generator`:
-        + `return waypoints.WaypointMatrixGenerator(phi,routes,waypoint_density)`: Experiment matrices (ignores OD-flows)
-        + `return separated.WaypointMatrixGenerator(phi,routes,waypoint_density)`: Control matrices
-        + `return waypoints_od.WaypointODMatrixGenerator(phi,routes,waypoint_density)`: Never use this, more information than we ever knows
 
 
-Loading New Waypoints
-=====================
-After the initial setup and if we want to load another waypoint file, Given a
-waypoint pickle file `waypoints-???.pkl` in the data folder:
+voronoi_python: voronoi_partition function (verbatim)
 
-1. Clear the waypoints table in the database via `psql -U megacell -d geodjango`:
-```sql
-DELETE from orm_waypoint;
-```
+set_waypoint_voronoi.sql: for each waypoint density,
 
-1. `django-admin.py shell --settings=settings_geo`
+waypoint_sequences.sql: calculates how the route intersects sequences of
+waypoints (slowest part of importing the data) generates a table of links and
+intersecting waypoints. Buildes a waypoint sequence for each route. (take a look
+at for bugs)
 
-2. In the shell,
-```python
-from orm import load
-load.import_waypoints()
-```
-3. Exit shell.
-4. `psql -U megacell -d geodjango -f waypoints/set_waypoint_voronoi.sql`
-5. `experiments/experiment2/database_setup/create_od_waypoint_view.sql` (takes a while)
+phi: route-sensor mapping, change when routes used changes
 
-If you ran `create_od_waypoint_view.sql` before, you have access to the
-`waypoint_od_bins` view. It is a materialized view so that it doesn't have to
-perform that expensive query every time. If you make any changes to the
-waypoints, routes, or origins, you can refresh the view via: `psql -U megacell
--d geodjango`
+matrix generation: sorting induces an order
 
-```sql
-REFRESH MATERIALIZED VIEW waypoint_od_bins;
-```
+waypointmatrixgenerator ignores OD-flows
+
+run_experiment.matrix_generator
+
+return waypoints.WaypointMatrixGenerator(phi, routes, waypoint_density)
+control
+return separated.WaypointMatrixGenerator(phi,routes, waypoint_density)
+
+return waypoints_od.WaypointODMatrixGenerator(phi, routes, waypoint_density)
+
+never use waypoint_od_matrix_generator (more information than we ever knows)
