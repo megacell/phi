@@ -1,6 +1,6 @@
 from orm.models import Sensor, ExperimentSensor, Experiment
 import datetime
-from database_setup import trajectory_loader as tl,
+from database_setup import trajectory_loader as tl
 from database_setup import route_loader as rl
 from database_setup import link_loader as lgl
 from database_setup import taz_loader as tzl

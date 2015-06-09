@@ -7,7 +7,7 @@ import cStringIO
 import shapefile
 import pickle
 
-def load(connection, filename):
+def load_taz(connection, filename):
     id_to_geom = pickle.load(open(filename))
     data = ['\t'.join([str(taz_id), geom.ewkt]) for taz_id, geom in id_to_geom.items()]
     data = '\n'.join(data)
@@ -22,5 +22,8 @@ def load(connection, filename):
     )
     cursor.copy_from(sio, 'taz_geometry')
 
+def load():
+    load_taz(connection, config.TAZ_FILE)
+
 if __name__ == '__main__':
-    load(connection, config.TAZ_FILE)
+    load()
