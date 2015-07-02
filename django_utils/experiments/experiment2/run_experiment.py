@@ -65,8 +65,8 @@ def matrix_generator(phi, routes, waypoint_density):
     if waypoint_density == 0:
         return od.ODMatrixGenerator(phi, routes)
     else:
-        return waypoints.WaypointMatrixGenerator(phi, routes, waypoint_density)
-        #return separated.WaypointMatrixGenerator(phi,routes, waypoint_density)
+        #return waypoints.WaypointMatrixGenerator(phi, routes, waypoint_density)
+        return separated.WaypointMatrixGenerator(phi,routes, waypoint_density)
         #return waypoints_od.WaypointODMatrixGenerator(phi, routes, waypoint_density)
 
 def get_phi(regenerate=False):
