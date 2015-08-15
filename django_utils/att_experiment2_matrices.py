@@ -5,7 +5,9 @@ import scipy.sparse as sps
 import psycopg2
 import config
 import pickle
+import json
 import csv
+import os
 
 from collections import defaultdict
 from pdb import set_trace as T
@@ -66,9 +68,9 @@ class MatrixGenerator():
     def U(self):
         sql = """
         SELECT count(r.od_route_index)
-        from experiment2_routes r
-        join experiment2_waypoint_od_bins w
-        on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
+        FROM experiment2_routes r
+        JOIN experiment2_waypoint_od_bins w
+        ON r.od_route_index = w.od_route_index AND r.orig_taz = w.origin AND r.dest_taz = w.destination
         WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
         GROUP BY w.waypoints
         ORDER BY w.waypoints
@@ -78,34 +80,38 @@ class MatrixGenerator():
         return block_sizes_to_U(block_sizes)
         
     def f(self):
+        sstem_paths = json.load(open('f_patched_cellpath.json'))
+        f = np.zeros(len(list(self.get_cellpaths())))
+        failed = 0
+        for item in sstem_paths:
+            if item is None:
+                failed += 1
+                continue
+            pathid, percent_match = item
+            f[pathid] += 1
+        print 'Total agents: {} Failed to match {}'.format(len(sstem_paths), failed)
+        return f
+
+    def get_cellpaths(self):
+        if not os.path.isfile(config.CELLPATHS_CACHE):
+            self.cache_cellpaths()
+        with open(config.CELLPATHS_CACHE) as cellpaths:
+            for line in cellpaths:
+                yield map(int, line.split())
+
+    def cache_cellpaths(self):
         sql = """
         SELECT w.waypoints
-        from experiment2_routes r
-        join experiment2_waypoint_od_bins w
-        on r.od_route_index = w.od_route_index and r.orig_taz = w.origin and r.dest_taz = w.destination
+        FROM experiment2_routes r
+        JOIN experiment2_waypoint_od_bins w
+        ON r.od_route_index = w.od_route_index AND r.orig_taz = w.origin AND r.dest_taz = w.destination
         WHERE r.od_route_index < %(num_routes)s AND w.density_id = %(density)s
         GROUP BY w.waypoints
         ORDER BY w.waypoints
         """
-        OFFSET = 72341
-        reader = csv.DictReader(open(config.SSTEM_DATA))
-        cellpath_flows = defaultdict(int)
-        print 'Loading SSTEM...'
-        
-        for row in reader:
-            if row['commute_direction'] == '0':
-                cellpath = tuple(sorted(set(map(int, row['cells_ID_string'].split()))))
-                cellpath_flows[cellpath] += 1
-
-        print 'Total agents in SSTEM: {}'.format(sum(cellpath_flows.values()))
-        
-        cur = self.query(sql)
-        f = []
-        for row in cur:
-            a = tuple(sorted(set(map(lambda x: x - OFFSET, row[0]))))
-            f.append(cellpath_flows[a])
-        print 'Agents used in SSTEM: {}'.format(sum(f))
-        return np.array(f)
+        with open(config.CELLPATHS_CACHE, 'w') as outfile:
+            for row in self.query(sql):
+                print >>outfile, ' '.join(map(str, row[0]))
 
     def save_matrices(self):
         print 'Generating A'
@@ -115,10 +121,11 @@ class MatrixGenerator():
         print 'Generating U'
         U = self.U()
         print 'Generating f'
-        f = self.f()        
-        matrices = {'A': A, 'b': b, 'U': U, 'f': f}
+        f = self.f()
+        x_false = np.zeros(A.shape[1])
+        matrices = {'A': A, 'b': b, 'U': U, 'f': f, 'x_true': x_false}
         print 'Saving matrices'
-        sio.savemat('{}/att_experiment_2_{}.mat'
+        sio.savemat('{}/188/experiment2_waypoints_matrices_routes_{}.mat'
                     .format(config.EXPERIMENT_MATRICES_DIR, self.params['num_routes']),
                     matrices)
 
@@ -135,7 +142,8 @@ def block_sizes_to_U(block_sizes):
     J = np.array(range(total))
     V = np.ones(total)
     return sps.csr_matrix((V,(I,J)))
-        
+
 if __name__ == '__main__':
     mg = MatrixGenerator(num_routes=10)
     mg.save_matrices()
+
