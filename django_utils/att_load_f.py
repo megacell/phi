@@ -6,7 +6,7 @@ import csv
 
 from collections import defaultdict
 from pdb import set_trace as T
-from random import shuffle
+from random import shuffle, randint
 
 sys.path.append('../../Locality-sensitive-hashing')
 import set_lsh as lsh
@@ -22,7 +22,19 @@ def get_SSTEM_paths():
     reader = csv.DictReader(open(config.SSTEM_DATA))
     for row in reader:
         if row['commute_direction'] == '0':
-            yield map(int, row['cells_ID_string'].split())
+            yield int(row['agent_id']), map(int, row['cells_ID_string'].split())
+
+def get_SSTEM_raw():
+    reader = csv.DictReader(open(config.SSTEM_RAW))
+    for row in reader:
+        if row['commute_direction'] == '0':
+            yield int(row['agent_id']), map(int, row['cells_ID_string'].split())
+
+def get_ground_truth():
+    reader = csv.DictReader(open(config.TRAJECTORY_CSV))
+    for row in reader:
+        if row['commute_direction'] == '0':
+            yield row
 
 def f():
     reader = csv.DictReader(open(config.SSTEM_DATA))
@@ -42,41 +54,37 @@ def f():
         f.append(cellpath_flows[a])
     print 'Agents used in SSTEM: {}'.format(sum(f))
     return f
-    
-def sorted_set_inters(a, b):
-    ''' Returns number of items in both a and b
-    >>> sorted_set_inters([2, 4, 6], [1, 2, 3, 4, 5])
-    2
-    >>> sorted_set_inters([2, 4, 6], [1, 3, 5])
-    0
-    '''
-    i, j, n = 0, 0, 0
-    while i < len(a) and j < len(b):
-        if a[i] < b[j]:
-            i += 1
-        elif a[i] > b[j]:
-            j += 1
-        else:
-            i += 1
-            j += 1
-            n += 1
-    return n
-
-def argmax(seq, fn):
-    seq = iter(seq)
-    best_s = next(seq)
-    best_fs = fn(best_s)
-    for s in seq:
-        fs = fn(s)
-        if fs > best_fs:
-            best_s = s
-            best_fs = fs
-    return best_s, best_fs
 
 def cells_hash_gen():
     table = range(805)
     shuffle(table)
     return table.__getitem__
+
+class Matcher:
+    def match(self, cellpath):
+        assert NotImplemented
+
+class LSHMatcher(Matcher):
+    def __init__(self, cellpaths, b, k, hashgen=None):
+        self.s = lsh.SetLSH(7, 5, hashgen=cells_hash_gen)
+        n = 0
+        for path in cellpaths:
+            if n % 100000 == 0:
+                print n
+            if len(path) > 0:
+                self.s.insert(set(path))
+            n += 1
+            
+    def match(self, cellpath):
+        return self.s.query(set(cellpath))
+        
+class BruteMatcher(Matcher):
+    def __init__(self, cellpaths):
+        self.cellpaths = [set(path) for path in get_cellpaths()]
+        
+    def match(self, cellpath):
+        path = set(cellpath)
+        return max(self.cellpaths, key=lambda x: lsh.jaccard(x, path))
 
 def bench():
     s = lsh.SetLSH(7, 5, hashgen=cells_hash_gen)
@@ -99,62 +107,57 @@ def compare():
     T()
 
 def main():
-    s = lsh.SetLSH(7, 5, hashgen=cells_hash_gen)
-    n = 0
-        
-    for path in get_cellpaths():
-        if n % 100000 == 0:
-            print n
-        if len(path) > 0:
-            s.insert(set(path))
-        n += 1
-        
+    lshm = LSHMatcher(get_cellpaths(), 7, 5, hashgen=cells_hash_gen)
     n = 0
     results = []
-    for path in get_SSTEM_paths():
+    for _, path in get_SSTEM_paths():
         if n % 1000 == 0:
             print n
         n += 1
-        results.append(s.query(set(path), index=True))
+        results.append(lshm.match(path))
 
     json.dump(results, open('f.json', 'w'))
 
-def brute():
-    ''' Brute-force solution for testing '''
-    cellpaths = [set(path) for path in get_cellpaths()]
-    print 'Loaded cellpaths'
-    res = []
-    n = 0
-    for path in get_SSTEM_paths():
-        if n > 1000:
-            break
-        if n % 10 == 0:
-            print n
-        path = set(path)
-        best = max(cellpaths, key=lambda x: lsh.jaccard(x, path))
-        res.append(lsh.jaccard(best, path))
-        n += 1
+def compare():
+    ''' Compare brute-force solution with LSH matching'''
+    chosen_set = set(randint(0, 1000000) for _ in range(1000))
+    chosen = {}
+    for row in get_ground_truth():
+        aid = int(row['agent_id'])
+        if aid in chosen_set:
+            chosen[aid] = map(int, row['route_string'].split())
+            
+    brutem = BruteMatcher(get_cellpaths())
+    lshm = LSHMatcher(get_cellpaths(), 7, 5, hashgen=cells_hash_gen)
+    print 'Loaded matchers'
     
-    print res
-    json.dump(res, open('f_brute.json', 'w'))
+    res = {}
+    for agent_id, path in get_SSTEM_paths():
+        if agent_id not in chosen:
+            continue
+        if len(res) % 10 == 0:
+            print len(res)
+        brute_best = list(brutem.match(path))
+        lsh_result = lshm.match(path)
+        if lsh_result is None: continue            
+        lsh_best = list(lsh_result[0])
+
+        res[agent_id] = {'brute'      : brute_best,
+                         'lsh'        : lsh_best,
+                         'brute_d'    : lsh.jaccard(set(brute_best), set(path)),
+                         'lsh_d'      : lsh.jaccard(set(lsh_best), set(path)),
+                         'agent_id'   : agent_id,
+                         'path'       : list(set(path)),
+                         'trajectory' : chosen[agent_id]})
+
+    for aid, path in get_SSTEM_raw():
+        if aid in res:
+            res[aid]['sstem_path'] = list(path)
+        
+    json.dump(res.values(), open('compare.json', 'w'))
     
 if __name__ == '__main__':
-    brute()
-    #main()
-     # n = 0
-    # d = []
-    # for path in get_SSTEM_paths():
-    #     p = set(path)
-    #     if len(p) == 0: continue
-    #     def similarity_fn(cp):
-    #         cp = set(cp)
-    #         if len(cp) == 0:
-    #             return -1000000
-    #         return len(cp & p) / float(max(len(p), len(cp)))
-    #     d.append(argmax(cellpaths, similarity_fn) + (path,))
-    #     n += 1
-    #     if n % 20 == 0:
-    #         T()
+    compare()
         
         
             

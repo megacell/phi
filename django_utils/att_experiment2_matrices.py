@@ -81,15 +81,16 @@ class MatrixGenerator():
         
     def f(self):
         sstem_paths = json.load(open('f_patched_cellpath.json'))
-        f = np.zeros(len(list(self.get_cellpaths())))
+        f = np.zeros(sum(1 for _ in self.get_cellpaths()))
         failed = 0
+        print 'f: Loaded data'
         for item in sstem_paths:
             if item is None:
                 failed += 1
                 continue
             pathid, percent_match = item
             f[pathid] += 1
-        print 'Total agents: {} Failed to match {}'.format(len(sstem_paths), failed)
+        print 'f: Total agents: {} Failed to match {}'.format(len(sstem_paths), failed)
         return f
 
     def get_cellpaths(self):
@@ -145,5 +146,8 @@ def block_sizes_to_U(block_sizes):
 
 if __name__ == '__main__':
     mg = MatrixGenerator(num_routes=10)
-    mg.save_matrices()
+    f  = mg.f()
+    mat = sio.loadmat('experiment_matrices/1/experiment2_waypoints_matrices_routes_10.mat')
+    mf = mat['f']
+    T()
 
